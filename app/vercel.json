@@ -1,15 +1,23 @@
 {
+  "version": 2,
   "builds": [
     {
-      "src": "server.js", // Replace with the actual server file name and extension
+      "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "next.config.js",
+      "use": "@vercel/next"
     }
   ],
   "routes": [
     {
+      "src": "/auth",
+      "dest": "/auth.html"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/$1",
-      "continue": true
+      "dest": "/$1"
     }
   ]
 }
