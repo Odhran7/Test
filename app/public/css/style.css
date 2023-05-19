@@ -487,20 +487,7 @@ h6,
     }
 }
 
-.text-light h1,
-.text-light h2,
-.text-light h3,
-.text-light h4,
-.text-light h5,
-.text-light h6,
-.text-light .h1,
-.text-light .h2,
-.text-light .h3,
-.text-light .h4,
-.text-light .h5,
-.text-light .h6 {
-    color: !important
-}
+
 
 .text-sm {
     font-size: 18px;
@@ -592,7 +579,7 @@ pre .h3,
 pre .h4,
 pre .h5,
 pre .h6 {
-    font-family: "Courier 10 Pitch", Courier, monospace
+    font-family: "Courier 10 Pitch", Courier, monospace"
 }
 
 pre,
@@ -1258,44 +1245,45 @@ label {
     padding: 16px 32px;
     height: 48px;
     text-align: center;
-    white-space: nowrap
+    white-space: nowrap;
 }
 
 .button:hover {
-    background: #262a33
+    background: #262a33;
 }
 
 .button:active {
-    outline: 0
+    outline: 0;
 }
 
 .button::before {
-    border-radius: 2px
+    border-radius: 2px;
 }
 
 .button-sm {
     padding: 8px 24px;
-    height: 32px
+    height: 32px;
 }
 
 .button-primary {
-    background: #097dea;
-    background: linear-gradient(65deg, #0270D7 0, #0F8AFD 100%)
+    background: #fff;
+    color: #000 !important; /* Add black text color */
 }
 
 .button-primary:hover {
-    background: #0982f4;
-    background: linear-gradient(65deg, #0275e1 0, #198ffd 100%)
-}
-
-.button-block {
-    display: flex
+    background: #000;
+    color: #fff !important; /* Add white text color when hovered */
 }
 
 .button-block {
     display: flex;
-    width: 100%
 }
+
+.button-block {
+    display: flex;
+    width: 100%;
+}
+
 
 @media (max-width: 640px) {
     .button-wide-mobile {
@@ -1377,10 +1365,6 @@ label {
 
 .hero-cta {
     margin-bottom: 40px
-}
-
-.hero-figure-box {
-
 }
 
 .placeholder rect {
