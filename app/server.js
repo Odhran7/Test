@@ -6,9 +6,23 @@ import session from 'express-session';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
 import { body, validationResult } from 'express-validator';
-import pg from 'pg';
+import pkg from 'pg';
 import bcrypt from 'bcrypt';
+import { compare } from 'bcrypt';
+const { Pool } = pkg;
+import dotenv from 'dotenv';
 
+dotenv.config();
+
+// Instantiate the db connection 
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
 
 const app = express();
 
@@ -21,19 +35,38 @@ const handle = nextApp.getRequestHandler();
 
 app.use(express.json());
 
+// Db functions 
+
+
+
+
 // Middleware
 
-passport.use(new LocalStrategy(
-  (username, password, done) => {
-    if (username === 'admin' && password === 'admin') {
-      return done(null, username);
-    } else {
-      return done(null, false);
-    }
+passport.use(
+  new LocalStrategy(async (username, password, done) => {
+    try {
+      const query = 'SELECT * FROM users WHERE username = $1 LIMIT 1;';
+      const values = [username];
 
-    // Implement bcrypt here once we have a db
-  }
-));
+      const result = await pool.query(query, values);
+      const user = result.rows[0];
+
+      if (!user) {
+        return done(null, false);
+      }
+
+      const passwordMatch = await compare(password, user.password);
+
+      if (passwordMatch) {
+        return done(null, username);
+      } else {
+        return done(null, false);
+      }
+    } catch (error) {
+      return done(error);
+    }
+  })
+);
 
 const ensureAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) {
@@ -51,16 +84,26 @@ passport.serializeUser((username, done) => {
 
 // Deserialize the user
 
-passport.deserializeUser((username, done) => {
-  if (username === 'admin') {
-    done(null, username);
-  } else {
-    done(new Error("Invalid username"));
+passport.deserializeUser(async (username, done) => {
+  try {
+    const query = 'SELECT * FROM users WHERE username = $1 LIMIT 1;';
+    const values = [username];
+
+    const result = await pool.query(query, values);
+    const user = result.rows[0];
+
+    if (user) {
+      return done(null, username);
+    } else {
+      return done(new Error('Invalid username'));
+    }
+  } catch (error) {
+    return done(error);
   }
-})
+});
 
 app.use(express.urlencoded({ extended: true }));
-app.use(session({ secret: 'shfksadjfhs', resave: false, saveUninitialized: false }));
+app.use(session({ secret: process.env.SECRET_KEY, resave: false, saveUninitialized: false }));
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -90,40 +133,33 @@ nextApp.prepare().then(() => {
     body('username').trim().isLength({ min: 1 }).escape(),
     body('email').trim().isEmail().normalizeEmail(),
     body('password').trim().isLength({ min: 6 }).escape(),
-  ], (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
-      return;
-    }
-    const { username, email, password, confirm_password } = req.body;
-    if (password !== confirm_password) {
-      res.status(500);
-      throw new Error("Passwords do not match");
-    }
-
-    // Generate salt
-    const saltRounds = 7;
-    bcrypt.genSalt(saltRounds, (error, salt) => {
-      if (error) {
-        res.status(500);
-        throw error;
+  ], async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ errors: errors.array() });
+        return;
       }
-
-      // Hash the password
-      bcrypt.hash(password, salt, (error, hash) => {
-        if (error) {
-          res.status(500);
-          throw error;
-        }
-
-        const query = `INSERT INTO users (username, email, password) VALUES (?, ?, ?);`
-        
-        // Handle error and inject SQL once we have connection;
-
-        res.redirect('/app');
-      });
-    });
+  
+      const { username, email, password, confirm_password } = req.body;
+      if (password !== confirm_password) {
+        res.status(500);
+        throw new Error("Passwords do not match");
+      }
+  
+      const saltRounds = 7;
+      const salt = await bcrypt.genSalt(saltRounds);
+      const hash = await bcrypt.hash(password, salt);
+  
+      const query = `INSERT INTO users (username, email, password) VALUES ($1, $2, $3);`;
+      const values = [username, email, hash];
+  
+      await pool.query(query, values);
+  
+      res.redirect('/app');
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
   });
 
   app.all('*', (req, res) => {
@@ -134,4 +170,4 @@ nextApp.prepare().then(() => {
     if (err) throw err;
     console.log('> Ready on http://localhost:3001');
   });
-});
+})
