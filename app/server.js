@@ -166,8 +166,9 @@ nextApp.prepare().then(() => {
     return handle(req, res);
   });
 
-  app.listen(3001, (err) => {
-    if (err) throw err;
-    console.log('> Ready on http://localhost:3001');
+  const port = process.env.PORT || 3000;
+  app.listen(port, function() {
+    console.log('App is listening on port ' + port);
   });
+  
 })
