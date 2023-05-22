@@ -5425,6 +5425,10 @@ a img {
         margin-right: 15px;
         margin-top: 10px;
     }
+    .header-logo {
+        width: 75%;
+    }
+
 }
 
   

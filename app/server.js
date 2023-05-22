@@ -6,11 +6,14 @@ import session from 'express-session';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
 import { body, validationResult } from 'express-validator';
+import pgSession from 'connect-pg-simple';
 import pkg from 'pg';
 import bcrypt from 'bcrypt';
 import { compare } from 'bcrypt';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
+import cors from 'cors';
+import { rateLimit } from 'express-rate-limit';
 
 dotenv.config();
 
@@ -35,10 +38,19 @@ const handle = nextApp.getRequestHandler();
 
 app.use(express.json());
 
-// Db functions 
+// Prevent CORS attacks for dev, staging and production
 
+app.use(cors({
+  origin: ['http://valumetrics.co', 'https://valumetrics.co', 'http://localhost:3000', 'https://valumetrics-demo.herokuapp.com/']
+}));
 
+// Set up rate-limit
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max number of requests allowed in the defined window
+  message: 'Too many requests, please try again later.',
+});
 
 // Middleware
 
@@ -76,6 +88,18 @@ const ensureAuthenticated = (req, res, next) => {
   }
 }
 
+app.use(function (err, req, res, next) {
+  console.error(err.stack);
+  if (err.status === 404) {
+    res.status(404).sendFile(path.join(__dirname, 'public/404.html'));
+  } else {
+    res.status(500).json({
+      status: 'error',
+      message: 'Something broke!',
+    });
+  }
+});
+
 // Serialize the user
 
 passport.serializeUser((username, done) => {
@@ -103,7 +127,24 @@ passport.deserializeUser(async (username, done) => {
 });
 
 app.use(express.urlencoded({ extended: true }));
-app.use(session({ secret: process.env.SECRET_KEY, resave: false, saveUninitialized: false }));
+// Session set up
+
+// Production uncomment the below:
+
+/*
+const PgSession = pgSession(session);
+const sessionStore = new PgSession({
+  //pool,
+  tableName: 'session',
+});
+*/
+
+// Production -> store: sessionStore
+
+app.use(session({ secret: PROCESS>env.SECRET_KEY, resave: false, saveUninitialized: false }));
+
+// Set up Passport
+
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -119,7 +160,7 @@ nextApp.prepare().then(() => {
     res.sendFile(path.join(__dirname, 'public/auth.html'));
   });
 
-  app.post('/auth', passport.authenticate('local', { failureRedirect: '/auth' }), (req, res) => {
+  app.post('/auth', limiter, passport.authenticate('local', { failureRedirect: '/auth' }), (req, res) => {
     res.redirect('/app');
   });
 
@@ -137,7 +178,7 @@ nextApp.prepare().then(() => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        res.status(400).json({ errors: errors.array() });
+        res.status(400).json({ error: 'Invalid User data' });
         return;
       }
   
@@ -158,7 +199,7 @@ nextApp.prepare().then(() => {
   
       res.redirect('/app');
     } catch (error) {
-      res.status(500).send(error.message);
+      next(error);
     }
   });
 
