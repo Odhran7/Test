@@ -141,7 +141,7 @@ const sessionStore = new PgSession({
 
 // Production -> store: sessionStore
 
-app.use(session({ secret: PROCESS>env.SECRET_KEY, resave: false, saveUninitialized: false }));
+app.use(session({ secret: PROCESS.env.SECRET_KEY, resave: false, saveUninitialized: false }));
 
 // Set up Passport
 
