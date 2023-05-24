@@ -21,7 +21,7 @@ import fs from 'fs';
 dotenv.config();
 
 // Instantiate the db connection 
-const config = parse(process.env.DB_URL);
+const config = parse(process.env.DATABASE_URL);
 config.ssl = {
   rejectUnauthorized: false
 };
