@@ -14,18 +14,18 @@ const { Pool } = pkg;
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
+import pkgParse from 'pg-connection-string';
+const { parse } = pkgParse;
+import fs from 'fs';
 
 dotenv.config();
 
 // Instantiate the db connection 
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+const config = parse(process.env.DB_URL);
+config.ssl = {
+  rejectUnauthorized: false
+};
+const pool = new Pool(config);
 
 const app = express();
 
@@ -131,17 +131,17 @@ app.use(express.urlencoded({ extended: true }));
 
 // Production uncomment the below:
 
-/*
+
 const PgSession = pgSession(session);
 const sessionStore = new PgSession({
-  //pool,
+  pool,
   tableName: 'session',
 });
-*/
+
 
 // Production -> store: sessionStore
 
-app.use(session({ secret: process.env.SECRET_KEY, resave: false, saveUninitialized: false }));
+app.use(session({ secret: process.env.SECRET_KEY, resave: false, saveUninitialized: false, store: sessionStore }));
 
 
 // Set up Passport
