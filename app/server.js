@@ -41,7 +41,7 @@ app.use(express.json());
 // Prevent CORS attacks for dev, staging and production
 
 app.use(cors({
-  origin: ['http://valumetrics.co', 'https://valumetrics.co', 'http://localhost:3000', 'https://valumetrics-demo.herokuapp.com/']
+  origin: ['http://valumetrics.co', 'https://valumetrics.co', 'http://localhost:3000', 'https://valumetrics-demo.herokuapp.com/','https://valumetrics.ai', 'https://valumetrics.ai']
 }));
 
 // Set up rate-limit
