@@ -13147,12 +13147,14 @@ button.close:focus {
     border-left: 3px solid rgba(0, 0, 0, 0)
 }
 
+/*
 .app-nav .nav-link.active {
     color: #3D3B3B;
     background: #BABABA;
     border-left: 3px solid #3D3B3B;
     font-weight: 500
 }
+*/
 
 .app-nav .nav-link.submenu-toggle.active {
     background: none;

@@ -16,7 +16,10 @@ import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import pkgParse from 'pg-connection-string';
 const { parse } = pkgParse;
+import hbs from 'hbs';
 import fs from 'fs';
+import fetch from 'node-fetch';
+
 
 dotenv.config();
 
@@ -127,6 +130,12 @@ passport.deserializeUser(async (username, done) => {
 });
 
 app.use(express.urlencoded({ extended: true }));
+app.set('view engine', 'hbs');
+app.set('views', path.join(__dirname, 'views'));
+
+
+
+
 // Session set up
 
 // Production uncomment the below:
@@ -148,13 +157,46 @@ app.use(session({ secret: process.env.SECRET_KEY, resave: false, saveUninitializ
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(express.static(path.join(__dirname, 'public')));
+
+/*
 
 nextApp.prepare().then(() => {
   // Serve static files from the public directory
-  app.use(express.static(path.join(__dirname, 'public')));
+  
 
   app.get('/app', ensureAuthenticated, (req, res) => {
     return nextApp.render(req, res, '/app', req.query);
+  });
+*/
+
+  app.get('/app/companies', async (req, res) => {
+    const query = `SELECT * FROM companies;`;
+    const results = await pool.query(query);
+    const names = results.rows.map((row) => row.name);
+    const apiKey = process.env.ALPHAVANTAGE_API_KEY;
+
+    const tickers = [];
+
+    for (const name of names) {
+      const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${name}&apikey=${apiKey}`;
+      console.log(url);
+      try {
+        const data = await fetch(url);
+        const json = await data.json();
+        console.log(json);
+        const ticker = json.Symbol;
+        const marketCap = json.MarketCapitalization;
+
+        // Store the ticker information in an array
+        tickers.push({ name, ticker, marketCap });
+      } catch (error) {
+        console.log(`Error fetching ticker for ${name}: ${error}`);
+      }
+    }
+    console.log('Tickers:', tickers);
+    res.render('companies', { tickers });
+    
   });
 
   app.get('/auth', (req, res) => {
@@ -213,4 +255,4 @@ nextApp.prepare().then(() => {
     console.log('App is listening on port ' + port);
   });
   
-})
+// })
