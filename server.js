@@ -327,7 +327,7 @@ app.get('/app/companies', async (req, res) => {
   res.render('companies', { tickers });
 });
 
-app.get('/app/:ticker', async (req, res) => {
+app.get('/app/company/:ticker', async (req, res) => {
   const ticker = req.params.ticker;
   const query = `SELECT * FROM companies WHERE ticker=$1`;
   const values = [ticker];
@@ -356,8 +356,6 @@ app.get('/app/:ticker', async (req, res) => {
         date: new Date(quote.date).toISOString().split('T')[0],
         price: quote.close
     }));
-    console.log(company);
-
     res.render('company', { stockData: JSON.stringify(stockData), company }); // Pass company data to the template
   } catch (err) {
     console.error('Failed to retrieve stock price data:', err);
