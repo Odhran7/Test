@@ -2,6 +2,48 @@
 <html lang="en"> 
 	<head>
 		<title>Valumetrics App</title>
+
+				<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script>
+		const clientStockData = {{{stockData}}}; // Handlebars will insert the stock data here
+		window.onload = function() {
+			const ctx = document.getElementById('stockChart').getContext('2d');
+			new Chart(ctx, {
+				type: 'line',
+				data: {
+					labels: clientStockData.map(data => data.date),
+					datasets: [{
+						label: ' Stock Price',
+						data: clientStockData.map(data => data.price),
+						borderColor: '#000',
+						fill: false
+					}]
+				},
+				options: {
+					legend: {
+						display: false,
+					},
+					scales: {
+						x: {
+							type: 'time',
+							time: {
+								parser: 'YYYY-MM-DD', // Specify the parser because the date format sent from the server is 'yyyy-mm-dd'
+								tooltipFormat: 'll'
+							},
+							display: true,
+							scaleLabel: {
+								display: true,
+								labelString: 'Date'
+							}
+						},
+						y: {
+							beginAtZero: true
+						}
+					}
+				}
+			});
+		};
+		</script>
 		
 		<!-- Meta -->
 		<meta charset="utf-8">
@@ -10,13 +52,13 @@
 		
 		<meta name="description" content="Valumetrics Dashboard">
 		<meta name="author" content="Valumetrics">    
-		<link rel="shortcut icon" href="./img/favicon.ico"> 
+		<link rel="shortcut icon" href="/img/favicon.ico"> 
 		
 		<!-- FontAwesome JS-->
-		<script defer src="./js/plugins/fontawesome/js/all.min.js"></script>
+		<script defer src="/js/plugins/fontawesome/js/all.min.js"></script>
 		
 		<!-- App CSS -->  
-		<link id="theme-style" rel="stylesheet" href="./css/portal.css">
+		<link id="theme-style" rel="stylesheet" href="/css/portal.css">
 	
 	</head> 
 
@@ -51,13 +93,13 @@
 
                             <div class="app-utility-item app-user-dropdown dropdown">
                                 <a class="dropdown-toggle" id="user-dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">
-                                    <img src="./usericon.png" alt="user profile">
+                                    <img src="	/usericon.png" alt="user profile">
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="user-dropdown-toggle">
-                                    <li><a class="dropdown-item" href="account.html">Account</a></li>
-                                    <li><a class="dropdown-item" href="settings.html">Settings</a></li>
+                                    <li><a class="dropdown-item" href="">Account</a></li>
+                                    <li><a class="dropdown-item" href="">Settings</a></li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="login.html">Log Out</a></li>
+                                    <li><a class="dropdown-item" href="">Log Out</a></li>
                                 </ul>
                             </div><!--//app-user-dropdown-->
                         </div><!--//app-utilities-->
@@ -71,7 +113,7 @@
                 <a href="#" id="sidepanel-close" class="sidepanel-close d-xl-none">&times;</a>
                 <div class="app-branding">
                     <a class="app-logo" href="app.html">
-                        <img class="logo-icon me-2" src="./img/logo-icon.png" alt="logo">
+                        <img class="logo-icon me-2" src="/img/logo-icon.png" alt="logo">
                         <span class="logo-text">Dashboard</span>
                     </a>
                 </div><!--//app-branding-->
@@ -165,14 +207,14 @@
 	    <div class="app-content pt-3 p-md-3 p-lg-4">
 		    <div class="container-xl">
 			    
-			    <h1 class="app-page-title">Charts</h1>
+			    <h1 class="app-page-title">{{ company.name }} {{ company.ticer }}</h1>
 			    <div class="app-card shadow-sm mb-4 border-left-decoration">
 				    <div class="inner">
 					    <div class="app-card-body p-4">
 						    <div class="row gx-5 gy-3">
 						        <div class="col-12 col-lg-9">
-							        
-							        <div>Apple</div>
+								<img src="{{ company.logo_url }}" alt="{{company.name}} Logo" width="50px" style="margin-right: 10px;">
+							        <div>{{ company.name }}</div>
 							    </div><!--//col-->
 							    <div class="col-12 col-lg-3">
 								    <a class="btn app-btn-primary" href="https://www.chartjs.org/docs/latest/" target="_blank"><svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-arrow-up-right-square me-2" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -190,11 +232,11 @@
 			        <div class="col-12 col-lg-6">
 					    <div class="app-card app-card-chart h-100 shadow-sm">
 					        <div class="app-card-header p-3 border-0">
-						        <h4 class="app-card-title">Area Line Chart Demo</h4>
+						        <h4 class="app-card-title">{{ company.name }} Stock Chart</h4>
 					        </div><!--//app-card-header-->
 					        <div class="app-card-body p-4">					   
 						        <div class="chart-container">
-				                    <canvas id="chart-line" ></canvas>
+				                    <canvas id="stockChart"></canvas>
 						        </div>
 					        </div><!--//app-card-body-->
 				        </div><!--//app-card-->
@@ -448,15 +490,15 @@
 
  
    <!-- Javascript -->          
-   <script src="./js/plugins/popper.min.js"></script>
-   <script src="./js/plugins/bootstrap/js/bootstrap.min.js"></script>  
+   <script src="/js/plugins/popper.min.js"></script>
+   <script src="/js/plugins/bootstrap/js/bootstrap.min.js"></script>  
 
    <!-- Charts JS -->
-   <script src="./js/plugins/chart.js/chart.min.js"></script> 
-   <script src="./js/index-charts.js"></script> 
+   <script src="/js/plugins/chart.js/chart.min.js"></script> 
+   <script src="/js/index-charts.js"></script> 
    
    <!-- Page Specific JS -->
-   <script src="./js/app.js"></script> 
+   <script src="/js/app.js"></script> 
    <!--Start of Tawk.to Script-->
    <script type="text/javascript">
 	   var Tawk_API = Tawk_API || {};

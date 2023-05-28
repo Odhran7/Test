@@ -19,6 +19,8 @@ const fetch = require('node-fetch');
 const OAuth2Strategy = require('passport-oauth2').Strategy;
 const GoogleStrategy = require('passport-google-oauth2').Strategy;
 const LinkedInStrategy = require("passport-linkedin-oauth2").Strategy;
+const yahooFinance = require('yahoo-finance');
+const Chart = require('chart.js');
 
 dotenv.config();
 
@@ -36,13 +38,14 @@ const dev = process.env.NODE_ENV !== 'production';
 app.use(express.json());
 
 // Prevent CORS attacks for dev, staging, and production
+
 app.use(cors({
   origin: [
     'http://valumetrics.co',
     'https://valumetrics.co',
     'http://localhost:3000',
     'https://valumetrics-demo.herokuapp.com/',
-    'https://valumetrics.ai',
+    'http://valumetrics.ai',
     'https://valumetrics.ai'
   ]
 }));
@@ -281,6 +284,7 @@ app.get('/app', ensureAuthenticated, async (req, res) => {
   res.render('app', { username: username, ids:ids });
 })
 
+
 app.get('/app/companies', async (req, res) => {
   const queryCompany = `SELECT * FROM companies;`;
   const results = await pool.query(queryCompany);
@@ -323,7 +327,43 @@ app.get('/app/companies', async (req, res) => {
   res.render('companies', { tickers });
 });
 
+app.get('/app/:ticker', async (req, res) => {
+  const ticker = req.params.ticker;
+  const query = `SELECT * FROM companies WHERE ticker=$1`;
+  const values = [ticker];
+  
+  let company;
+  try {
+    const result = await pool.query(query, values);
+    if (result.rows.length == 0) { 
+      return res.status(404).send('Stock not found in the database');
+    }
+    company = result.rows[0]; 
+  } catch (err) {
+    console.error('Failed to retrieve stock from the database:', err);
+    return res.status(500).send(err.message);
+  }
+  
+  try {
+    const quotes = await yahooFinance.historical({
+        symbol: ticker,
+        from: '2023-01-01',
+        to: '2023-05-26',
+        period: 'd'
+    });
 
+    const stockData = quotes.map(quote => ({
+        date: new Date(quote.date).toISOString().split('T')[0],
+        price: quote.close
+    }));
+    console.log(company);
+
+    res.render('company', { stockData: JSON.stringify(stockData), company }); // Pass company data to the template
+  } catch (err) {
+    console.error('Failed to retrieve stock price data:', err);
+    res.status(500).send(err.message);
+  }
+});
 
 
 app.get('/auth', (req, res) => {
