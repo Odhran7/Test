@@ -207,14 +207,14 @@
 	    <div class="app-content pt-3 p-md-3 p-lg-4">
 		    <div class="container-xl">
 			    
-			    <h1 class="app-page-title">{{ company.name }} {{ company.ticer }}</h1>
+			    <h1 class="app-page-title">{{ company.name }} {{ company.ticker }}</h1>
 			    <div class="app-card shadow-sm mb-4 border-left-decoration">
 				    <div class="inner">
 					    <div class="app-card-body p-4">
 						    <div class="row gx-5 gy-3">
 						        <div class="col-12 col-lg-9">
-								<img src="{{ company.logo_url }}" alt="{{company.name}} Logo" width="50px" style="margin-right: 10px;">
-							        <div>{{ company.name }}</div>
+								<img src="{{ company.logo_url }}" alt="{{company.name}} Logo" width="100px" style="margin-right: 10px;">
+									<div>Previous Close: <span class="price">{{ data.previousClose }}</span></div>
 							    </div><!--//col-->
 							    <div class="col-12 col-lg-3">
 								    <a class="btn app-btn-primary" href="https://www.chartjs.org/docs/latest/" target="_blank"><svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-arrow-up-right-square me-2" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -244,11 +244,99 @@
 		            <div class="col-12 col-lg-6">		        
 				        <div class="app-card app-card-chart h-100 shadow-sm">
 					        <div class="app-card-header p-3 border-0">
-						        <h4 class="app-card-title">Bar Chart Demo</h4>
+						        <h4 class="app-card-title">Key Metrics in {{ data.currency }}</h4>
 					        </div><!--//app-card-header-->
 					        <div class="app-card-body p-4">					   
 						        <div class="chart-container">
-				                    <canvas id="chart-bar" ></canvas>
+														
+				<div class="data-table">
+				<div class="column">
+					<table>
+					<tbody>
+						<tr>
+						<td><strong>Max Age</strong></td>
+						<td>{{ data.maxAge }}</td>
+						</tr>
+						<tr>
+						<td><strong>Previous Close</strong></td>
+						<td>{{ data.previousClose }}</td>
+						</tr>
+						<tr>
+						<td><strong>Open</strong></td>
+						<td>{{ data.open }}</td>
+						</tr>
+						<tr>
+						<td><strong>Day Low</strong></td>
+						<td>{{ data.dayLow }}</td>
+						</tr>
+						<tr>
+						<td><strong>Day High</strong></td>
+						<td>{{ data.dayHigh }}</td>
+						</tr>
+						<tr>
+						<td><strong>Dividend Rate</strong></td>
+						<td>{{ data.dividendRate }}</td>
+						</tr>
+						<tr>
+						<td><strong>Dividend Yield</strong></td>
+						<td>{{ data.dividendYield }}</td>
+						</tr>
+						<tr>
+						<td><strong>Ex-Dividend Date</strong></td>
+						<td>{{ data.exDividendDate }}</td>
+						</tr>
+					</tbody>
+					</table>
+				</div>
+				<div class="column">
+					<table>
+					<tbody>
+						<tr>
+						<td><strong>Payout Ratio</strong></td>
+						<td>{{ data.payoutRatio }}</td>
+						</tr>
+						<tr>
+						<td><strong>Five-Year Avg Dividend Yield</strong></td>
+						<td>{{ data.fiveYearAvgDividendYield }}</td>
+						</tr>
+						<tr>
+						<td><strong>Beta</strong></td>
+						<td>{{ data.beta }}</td>
+						</tr>
+						<tr>
+						<td><strong>Trailing P/E</strong></td>
+						<td>{{ data.trailingPE }}</td>
+						</tr>
+						<tr>
+						<td><strong>Forward P/E</strong></td>
+						<td>{{ data.forwardPE }}</td>
+						</tr>
+						<tr>
+						<td><strong>Volume</strong></td>
+						<td>{{ data.volume }}</td>
+						</tr>
+						<tr>
+						<td><strong>Market Cap</strong></td>
+						<td>{{ data.marketCap }}</td>
+						</tr>
+						<tr>
+						<td><strong>52-Week Low</strong></td>
+						<td>{{ data.fiftyTwoWeekLow }}</td>
+						</tr>
+						<tr>
+						<td><strong>52-Week High</strong></td>
+						<td>{{ data.fiftyTwoWeekHigh }}</td>
+						</tr>
+						<tr>
+						<td><strong>Price to Sales (Trailing 12 Months)</strong></td>
+						<td>{{ data.priceToSalesTrailing12Months }}</td>
+						</tr>
+					</tbody>
+					</table>
+				</div>
+				</div>
+
+
 						        </div>
 					        </div><!--//app-card-body-->
 				        </div><!--//app-card-->

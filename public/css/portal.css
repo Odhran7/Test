@@ -375,6 +375,35 @@ button {
 button:focus:not(:focus-visible) {
     outline: 0
 }
+.data-table {
+    display: flex;
+  }
+  
+  .column {
+    flex: 1;
+    margin-right: 10px;
+  }
+  
+  table {
+    width: 100%;
+  }
+  
+  td {
+    padding: 5px;
+  }
+  
+  .column:not(:last-child) {
+    margin-right: 20px; /* Adjust the spacing as needed */
+  }
+
+.price {
+  font-weight: bold;
+  font-size: 18px; /* Adjust the font size as needed */
+}
+.company-info {
+  display: flex;
+  align-items: center;
+}
 
 input,
 button,

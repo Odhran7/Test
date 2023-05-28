@@ -20,7 +20,7 @@ const OAuth2Strategy = require('passport-oauth2').Strategy;
 const GoogleStrategy = require('passport-google-oauth2').Strategy;
 const LinkedInStrategy = require("passport-linkedin-oauth2").Strategy;
 const yahooFinance = require('yahoo-finance');
-const Chart = require('chart.js');
+const yahooFinance2 = require('yahoo-finance2').default;
 
 dotenv.config();
 
@@ -285,7 +285,7 @@ app.get('/app', ensureAuthenticated, async (req, res) => {
 })
 
 
-app.get('/app/companies', async (req, res) => {
+app.get('/app/companies', ensureAuthenticated, async (req, res) => {
   const queryCompany = `SELECT * FROM companies;`;
   const results = await pool.query(queryCompany);
   const rows = results.rows;
@@ -327,7 +327,11 @@ app.get('/app/companies', async (req, res) => {
   res.render('companies', { tickers });
 });
 
-app.get('/app/company/:ticker', async (req, res) => {
+app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
+
+  
+  // All data related to the chart
+  
   const ticker = req.params.ticker;
   const query = `SELECT * FROM companies WHERE ticker=$1`;
   const values = [ticker];
@@ -356,7 +360,16 @@ app.get('/app/company/:ticker', async (req, res) => {
         date: new Date(quote.date).toISOString().split('T')[0],
         price: quote.close
     }));
-    res.render('company', { stockData: JSON.stringify(stockData), company }); // Pass company data to the template
+
+    // Passing in key ratios 
+    let ratioData;
+    try {
+      ratioData = (await yahooFinance2.quoteSummary(ticker)).summaryDetail;
+    } catch (err) {
+      console.error('Error getting stock data');
+      return res.status(500).send(err.message);
+    }
+    res.render('company', { stockData: JSON.stringify(stockData), company, data: ratioData }); // Pass company data to the template
   } catch (err) {
     console.error('Failed to retrieve stock price data:', err);
     res.status(500).send(err.message);
