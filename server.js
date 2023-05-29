@@ -21,6 +21,8 @@ const GoogleStrategy = require('passport-google-oauth2').Strategy;
 const LinkedInStrategy = require("passport-linkedin-oauth2").Strategy;
 const yahooFinance = require('yahoo-finance');
 const yahooFinance2 = require('yahoo-finance2').default;
+const multer = require('multer');
+const flash = require('connect-flash');
 
 dotenv.config();
 
@@ -36,6 +38,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const dev = process.env.NODE_ENV !== 'production';
 
 app.use(express.json());
+app.use(flash());
 
 // Prevent CORS attacks for dev, staging, and production
 
@@ -81,6 +84,24 @@ passport.use(new LocalStrategy(async (username, password, done) => {
     return done(error);
   }
 }));
+
+// Setting up multer storage
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'docs');
+  },
+  filename: (req, file, cb) => {
+    const company_id = req.body.company_id;
+    const document_type = req.body.document_type;
+    const year = req.body.year;
+    const fileName = `${company_id}_${document_type}_${year}_${file.originalname}`;
+    cb(null, fileName);
+  }
+});
+
+// Create multer upload instance
+const upload = multer({ storage });
 
 
 const ensureAuthenticated = (req, res, next) => {
@@ -385,9 +406,66 @@ app.post('/auth', limiter, passport.authenticate('local', { failureRedirect: '/a
   res.redirect('/app');
 });
 
-app.get('/admin', ensureAuthenticatedAdmin, (req, res, next) => {
-  res.sendFile(path.join(__dirname, 'public/admin.html'));
+app.get('/admin', ensureAuthenticatedAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM companies;');
+    const tableData = result.rows;
+    console.log(tableData);
+    res.render('admin', { tableData });
+  } catch (err) {
+    console.error('Error fetching data from the database:', err);
+    res.status(500).send('Internal Server Error');
+  }
 })
+
+// POST Routes for /admin
+
+app.post('/admin', ensureAuthenticatedAdmin, upload.single('file'), [
+  body('market_cap').customSanitizer((value) => value ? value.replace(/,/g, '') : ''),
+], async (req, res) => {
+  const formType = req.body.formType;
+  if (formType === 'add-company') {
+    try {
+      const { name, ticker, market_cap, logo_url } = req.body;
+      const query = `INSERT INTO companies (name, ticker, market_cap, logo_url) VALUES ($1, $2, $3, $4);`;
+      const values = [name, ticker, market_cap, logo_url];
+      const result = await pool.query(query, values);
+      req.flash('success', 'Company added successfully');
+      res.redirect(req.header('Referer') || '/');
+    } catch (err) {
+      console.error('Failed to add company to database:', err);
+      req.flash('error', 'Failed to add company to database');
+      res.redirect(req.header('Referer') || '/');
+    }
+  }
+
+  if (formType === 'add-document') {
+    try {
+      const { company_id, document_type, year } = req.body;
+      const file = req.file;
+      if (!file) {
+        req.flash('error', 'No file uploaded');
+        res.redirect(req.header('Referer') || '/');
+        return;
+      }
+      const fileName = `${company_id}_${document_type}_${year}_${file.originalname}`;
+      const filePath = `docs/${company_id}/${year}/${fileName}`;
+      const query = `INSERT INTO documents (company_id, document_type, file_name, file_path, file_size, upload_timestamp, year) VALUES ($1, $2, $3, $4, $5, $6, $7);`;
+      const values = [company_id, document_type, fileName, filePath, file.size, new Date(), year];
+      const result = await pool.query(query, values);
+      const targetDir = `docs/${company_id}/${year}`;
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.renameSync(file.path, path.join(targetDir, fileName));
+      req.flash('success', 'Document added successfully');
+      res.redirect(req.header('Referer') || '/');
+    } catch (err) {
+      console.error('Error adding document to the database:', err);
+      req.flash('error', 'Error adding document to the database');
+      res.redirect(req.header('Referer') || '/');
+    }
+  }
+});
+
 
 app.get('/sign-up', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/sign-up.html'));
