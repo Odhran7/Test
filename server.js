@@ -23,6 +23,7 @@ const yahooFinance = require('yahoo-finance');
 const yahooFinance2 = require('yahoo-finance2').default;
 const multer = require('multer');
 const flash = require('connect-flash');
+const ingestDoc = require('./scripts/ingest');
 
 dotenv.config();
 
@@ -410,7 +411,6 @@ app.get('/admin', ensureAuthenticatedAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM companies;');
     const tableData = result.rows;
-    console.log(tableData);
     res.render('admin', { tableData });
   } catch (err) {
     console.error('Error fetching data from the database:', err);
@@ -448,6 +448,9 @@ app.post('/admin', ensureAuthenticatedAdmin, upload.single('file'), [
         res.redirect(req.header('Referer') || '/');
         return;
       }
+
+      await ingestDoc(file, company_id, document_type, year);
+      /*
       const fileName = `${company_id}_${document_type}_${year}_${file.originalname}`;
       const filePath = `docs/${company_id}/${year}/${fileName}`;
       const query = `INSERT INTO documents (company_id, document_type, file_name, file_path, file_size, upload_timestamp, year) VALUES ($1, $2, $3, $4, $5, $6, $7);`;
@@ -456,6 +459,7 @@ app.post('/admin', ensureAuthenticatedAdmin, upload.single('file'), [
       const targetDir = `docs/${company_id}/${year}`;
       fs.mkdirSync(targetDir, { recursive: true });
       fs.renameSync(file.path, path.join(targetDir, fileName));
+      */
       req.flash('success', 'Document added successfully');
       res.redirect(req.header('Referer') || '/');
     } catch (err) {
