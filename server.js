@@ -54,6 +54,7 @@ app.use(cors({
   ]
 }));
 
+app.set('trust proxy', 1)
 // Set up rate-limit
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -130,7 +131,7 @@ passport.use(
     {
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: "/linkedin/callback",
+      callbackURL: "https://valumetrics.ai/linkedin/callback",
       scope: ["r_emailaddress", "r_liteprofile"],
       proxy: true,
     },
@@ -156,7 +157,7 @@ passport.use(
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "/google/callback",
+  callbackURL: "https://valumetrics.ai/google/callback",
   passReqToCallback: true,
   proxy: true,
 },
@@ -256,6 +257,11 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
+  cookie: {
+    secure: "auto",
+    maxAge: 100000000,
+    sameSite: "none",
+  }
   }));
 
 // Set up Passport
