@@ -629,15 +629,13 @@ app.get('/google',
       }
   ));
 
-app.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: '/auth' }),
-  function (req, res, err) {
-      if (err) {
-        console.error(err);
-        res.redirect("/error");
-        return;
-      }
-      res.redirect('/app');
+  app.get('/google/callback',
+  passport.authenticate('google', {
+      failureRedirect: '/auth',
+  }),
+  function (req, res) {
+      res.redirect('/app')
+
   }
 );
 
@@ -649,17 +647,10 @@ app.get(
 
 app.get(
   "/linkedin/callback",
-  passport.authenticate("linkedin", { failureRedirect: "/auth" }),
-  function(req, res, err) {
-    // handle error here
-    if (err) {
-      console.error(err);
-      res.redirect("/error");
-      return;
-    }
-    // successful authentication, redirect to app.
-    res.redirect("/app");
-  }
+  passport.authenticate("linkedin", {
+    successRedirect: "/app",
+    failureRedirect: "/auth",
+  })
 );
 
 
