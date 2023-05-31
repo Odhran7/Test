@@ -133,7 +133,7 @@ passport.use(
     {
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: "http://valumetrics.ai/linkedin/callback",
+      callbackURL: "https://valumetrics.ai/linkedin/callback",
       scope: ["r_emailaddress", "r_liteprofile"],
       proxy: true,
     },
@@ -159,7 +159,7 @@ passport.use(
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "http://valumetrics.ai/google/callback",
+  callbackURL: "https://valumetrics.ai/google/callback",
   passReqToCallback: true,
   proxy: true,
 },
