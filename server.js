@@ -156,7 +156,7 @@ passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: "https://valumetrics.ai/google/callback",
-  passReqToCallback   : true
+  passReqToCallback: true
 },
 function(request, accessToken, refreshToken, profile, done) {
   const email = profile.emails[0].value;
@@ -629,7 +629,7 @@ app.get('/google',
       }
   ));
 
-  app.get('/google/callback',
+app.get('/google/callback',
   passport.authenticate('google', {
       failureRedirect: '/auth',
   }),
