@@ -130,8 +130,9 @@ passport.use(
     {
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: "http://valumetrics.ai/linkedin/callback",
+      callbackURL: process.env.ABSOLUTE_URI + "/linkedin/callback",
       scope: ["r_emailaddress", "r_liteprofile"],
+      proxy: true,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -155,8 +156,9 @@ passport.use(
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "http://valumetrics.ai/google/callback",
-  passReqToCallback: true
+  callbackURL: process.env.ABSOLUTE_URI + "/google/callback",
+  passReqToCallback: true,
+  proxy: true,
 },
 function(request, accessToken, refreshToken, profile, done) {
   const email = profile.emails[0].value;
