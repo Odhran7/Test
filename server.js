@@ -48,7 +48,7 @@ app.use(cors({
     'http://valumetrics.co',
     'https://valumetrics.co',
     'http://localhost:3000',
-    'https://valumetrics-demo.herokuapp.com/',
+    'https://valumetrics-demo.herokuapp.com',
     'http://valumetrics.ai',
     'https://valumetrics.ai'
   ]
@@ -626,13 +626,15 @@ app.get('/google',
       }
   ));
 
-app.get('/google/callback',
-  passport.authenticate('google', {
-      failureRedirect: '/auth',
-  }),
-  function (req, res) {
-      res.redirect('/app')
-
+  app.get('/google/callback',
+  passport.authenticate('google', { failureRedirect: '/auth' }),
+  function (req, res, err) {
+      if (err) {
+        console.error(err);
+        res.redirect("/error");
+        return;
+      }
+      res.redirect('/app');
   }
 );
 
@@ -644,13 +646,19 @@ app.get(
 
 app.get(
   "/linkedin/callback",
-  passport.authenticate("linkedin", {
-    successRedirect: "/app",
-    failureRedirect: "/auth",
-  })
+  passport.authenticate("linkedin", { failureRedirect: "/auth" }),
+  function(req, res, err) {
+    // handle error here
+    if (err) {
+      console.error(err);
+      res.redirect("/error");
+      return;
+    }
+    // successful authentication, redirect to app.
+    res.redirect("/app");
+  }
 );
 
-// name, ticker, market_cap, logo_url
 
 app.get('/logout', (req, res) => {
   if (req.session) {
