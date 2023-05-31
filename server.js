@@ -56,7 +56,8 @@ app.use(cors({
   ]
 }));
 
-app.set('trust proxy', 1)
+app.set('trust proxy', 1);
+
 // Set up rate-limit
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -644,7 +645,8 @@ app.get('/google/callback',
       failureRedirect: '/auth',
   }),
   function (req, res) {
-      res.redirect('/app')
+    console.log("GOt to here whoop")
+    res.redirect('/app')
 
   }
 );
