@@ -262,7 +262,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-app.get('/app', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) => {
+app.get('/app', ensureAuthenticated, async (req, res) => {
   let username = 'undefined';
   if (req.user.provider == 'linkedin') {
     username = req.user.displayName;
@@ -307,7 +307,7 @@ app.get('/app', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) 
 })
 
 
-app.get('/app/companies', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) => {
+app.get('/app/companies', ensureAuthenticated, async (req, res) => {
   const queryCompany = `SELECT * FROM companies;`;
   const results = await pool.query(queryCompany);
   const rows = results.rows;
@@ -349,7 +349,7 @@ app.get('/app/companies', ensureAuthenticatedAdmin, ensureAuthenticated, async (
   res.render('companies', { tickers });
 });
 
-app.get('/app/company/:ticker', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) => {
+app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
 
   const ticker = req.params.ticker;
 
