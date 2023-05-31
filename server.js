@@ -626,7 +626,7 @@ app.get('/google',
       }
   ));
 
-  app.get('/google/callback',
+app.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/auth' }),
   function (req, res, err) {
       if (err) {
