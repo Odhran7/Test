@@ -495,6 +495,9 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
   }
 });
 
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/privacy-policy.html'));
+})
 
 
 app.get('/auth', (req, res) => {
