@@ -1,5 +1,4 @@
 const express = require('express');
-const { fileURLToPath } = require('url');
 const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
@@ -14,9 +13,7 @@ const cors = require('cors');
 const { rateLimit } = require('express-rate-limit');
 const pgParse = require('pg-connection-string');
 const hbs = require('hbs');
-const fs = require('fs');
 const fetch = require('node-fetch');
-const OAuth2Strategy = require('passport-oauth2').Strategy;
 const GoogleStrategy = require('passport-google-oauth2').Strategy;
 const LinkedInStrategy = require("passport-linkedin-oauth2").Strategy;
 const yahooFinance = require('yahoo-finance');

@@ -3,7 +3,6 @@ const { PineconeClient } = require("@pinecone-database/pinecone");
 const fs = require("fs");
 const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
 const { PineconeStore } = require("langchain/vectorstores/pinecone");
-const pdfParse = require("pdf-parse");
 const pgParse = require("pg-connection-string");
 const pg = require("pg");
 const path = require("path");
