@@ -50,7 +50,9 @@ app.use(cors({
     'http://localhost:3000',
     'https://valumetrics-demo.herokuapp.com',
     'http://valumetrics.ai',
-    'https://valumetrics.ai'
+    'https://valumetrics.ai',
+    'https://valumetrics.ai/google/callback',
+    'https://valumetrics.ai/linkedin/callback',
   ]
 }));
 
@@ -131,7 +133,7 @@ passport.use(
     {
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: "https://valumetrics.ai/linkedin/callback",
+      callbackURL: "http://localhost:3000/linkedin/callback",
       scope: ["r_emailaddress", "r_liteprofile"],
       proxy: true,
     },
@@ -157,7 +159,7 @@ passport.use(
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "https://valumetrics.ai/google/callback",
+  callbackURL: "http://localhost:3000/google/callback",
   passReqToCallback: true,
   proxy: true,
 },
