@@ -1,23 +1,42 @@
+const dotenv = require("dotenv");
 const { PineconeClient } = require("@pinecone-database/pinecone");
 const fs = require("fs");
 const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
 const { PineconeStore } = require("langchain/vectorstores/pinecone");
 const pdfParse = require("pdf-parse");
 const pgParse = require("pg-connection-string");
-const dotenv = require("dotenv");
 const pg = require("pg");
 const path = require("path");
 const { PDFLoader } = require('langchain/document_loaders/fs/pdf');
 const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
+const { error } = require("console");
+const { OpenAI } = require('langchain/llms/openai');
+const { ConversationalRetrievalQAChain } = require('langchain/chains');
 
+//dotenv.config({ path: '../.env' });
 dotenv.config();
-
 // Instantiate the database connection
 const config = pgParse.parse(process.env.DATABASE_URL);
 config.ssl = {
   rejectUnauthorized: false,
 };
 const pool = new pg.Pool(config);
+
+// Instantiate pinecone
+
+const initPinecone = async () => {
+  try {
+      const pinecone = new PineconeClient();
+    await pinecone.init({
+      environment: process.env.PINECONE_ENVIRONMENT,
+      apiKey: process.env.PINECONE_API_KEY,
+    });
+    return pinecone;
+  } catch (err) {
+    console.log("error", error);
+    throw new Error("Failed to init pinecone client");
+  }
+}
 
 async function ingestDoc(file, company_id, document_type, year) {
   try {
@@ -30,7 +49,7 @@ async function ingestDoc(file, company_id, document_type, year) {
     const index = client.Index(process.env.PINECONE_INDEX_NAME);
 
     const fileName = `${company_id}_${document_type}_${year}_${file.originalname}`;
-    const filePath = `docs/${company_id}/${year}/${fileName}`;
+    const filePath = `public/docs/${company_id}/${year}/${fileName}`;
 
     // Insert into the database
     const query =
@@ -48,7 +67,7 @@ async function ingestDoc(file, company_id, document_type, year) {
     const document_id = result.rows[0].id;
 
     // Move the file to the target directory
-    const targetDir = `docs/${company_id}/${year}`;
+    const targetDir = `public/docs/${company_id}/${year}`;
     fs.mkdirSync(targetDir, { recursive: true });
     fs.renameSync(file.path, path.join(targetDir, fileName));
 
@@ -90,5 +109,54 @@ async function ingestDoc(file, company_id, document_type, year) {
   }
 }
 
-module.exports = ingestDoc;
+const CONDENSE_PROMPT = `Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
 
+Chat History:
+{chat_history}
+Follow Up Input: {question}
+Standalone question:`;
+
+const QA_PROMPT = `You are a helpful AI assistant. Use the following pieces of context to answer the question at the end.
+If you don't know the answer, just say you don't know. DO NOT try to make up an answer.
+If the question is not related to the context, politely respond that you are tuned to only answer questions that are related to the context.
+
+{context}
+
+Question: {question}
+Helpful answer in markdown:`;
+
+const makeChain = async (vectorStore) => {
+  try {
+      // Initialize the Pinecone client
+      // const client = new PineconeClient();
+      // await client.init({
+      //   environment: process.env.PINECONE_ENVIRONMENT,
+      //   apiKey: process.env.PINECONE_API_KEY,
+      // });
+      // const index = client.Index(process.env.PINECONE_INDEX_NAME);
+
+      const model = new OpenAI({
+        temperature: 0,
+        modelName: 'gpt-3.5-turbo',
+      });
+
+      const chain = ConversationalRetrievalQAChain.fromLLM(
+        model,
+        vectorStore.asRetriever(),
+        {
+          qaTemplate: QA_PROMPT,
+          questionGeneratorTemplate: CONDENSE_PROMPT,
+          returnSourceDocuments: true,
+        }
+      );
+      return chain;
+  } catch (err) {
+    console.error("Something went wrong in makeChain: " + err.message);
+  }
+} 
+
+module.exports = {
+  ingestDoc,
+  makeChain,
+  initPinecone,
+};

@@ -23,7 +23,10 @@ const yahooFinance = require('yahoo-finance');
 const yahooFinance2 = require('yahoo-finance2').default;
 const multer = require('multer');
 const flash = require('connect-flash');
-const ingestDoc = require('./scripts/ingest');
+const { ingestDoc, makeChain, initPinecone } = require('./scripts/ingest');
+const { PineconeStore } = require('langchain/vectorstores/pinecone');
+const { OpenAIEmbeddings } = require('langchain/embeddings/openai');
+
 
 dotenv.config();
 
@@ -90,7 +93,7 @@ passport.use(new LocalStrategy(async (username, password, done) => {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'docs');
+    cb(null, 'public/docs');
   },
   filename: (req, file, cb) => {
     const company_id = req.body.company_id;
@@ -128,9 +131,9 @@ const ensureAuthenticatedAdmin = (req, res, next) => {
 passport.use(
   new LinkedInStrategy(
     {
-      clientID: "78v3r7yzvi37re",
-      clientSecret: "IEMzPGgOwTf5at8j",
-      callbackURL: "http://localhost:3000/linkedin/callback",
+      clientID: process.env.LINKEDIN_CLIENT_ID,
+      clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+      callbackURL: "http://valumetrics.ai/linkedin/callback",
       scope: ["r_emailaddress", "r_liteprofile"],
     },
     async (accessToken, refreshToken, profile, done) => {
@@ -153,9 +156,9 @@ passport.use(
 // Google OAuth2.0 Set-Up
 
 passport.use(new GoogleStrategy({
-  clientID:"269323502523-mvk1p4h5jrosauvd688fs0emsn8d2i57.apps.googleusercontent.com",
-  clientSecret:"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",
-  callbackURL: "http://localhost:3000/google/callback",
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: "http://valumetrics.ai/google/callback",
   passReqToCallback   : true
 },
 function(request, accessToken, refreshToken, profile, done) {
@@ -262,7 +265,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-app.get('/app', ensureAuthenticated, async (req, res) => {
+app.get('/app', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) => {
   let username = 'undefined';
   if (req.user.provider == 'linkedin') {
     username = req.user.displayName;
@@ -307,7 +310,7 @@ app.get('/app', ensureAuthenticated, async (req, res) => {
 })
 
 
-app.get('/app/companies', ensureAuthenticated, async (req, res) => {
+app.get('/app/companies', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) => {
   const queryCompany = `SELECT * FROM companies;`;
   const results = await pool.query(queryCompany);
   const rows = results.rows;
@@ -349,18 +352,28 @@ app.get('/app/companies', ensureAuthenticated, async (req, res) => {
   res.render('companies', { tickers });
 });
 
-app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
+app.get('/app/company/:ticker', ensureAuthenticatedAdmin, ensureAuthenticated, async (req, res) => {
+
+  const ticker = req.params.ticker;
 
   
   // All data related to the chart
   
-  const ticker = req.params.ticker;
   const query = `SELECT * FROM companies WHERE ticker=$1`;
   const values = [ticker];
+
+  // All data related to the docs 
+
+  const docQuery = `SELECT * FROM documents WHERE company_id=$1;`;
   
   let company;
+  let docData;
   try {
     const result = await pool.query(query, values);
+    const docValues = [result.rows[0].id];
+    const docResults = await pool.query(docQuery, docValues);
+    docData = docResults.rows;
+    console.log(docData);
     if (result.rows.length == 0) { 
       return res.status(404).send('Stock not found in the database');
     }
@@ -369,6 +382,7 @@ app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
     console.error('Failed to retrieve stock from the database:', err);
     return res.status(500).send(err.message);
   }
+  console.log(docData);
   
   try {
     const quotes = await yahooFinance.historical({
@@ -391,12 +405,99 @@ app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
       console.error('Error getting stock data');
       return res.status(500).send(err.message);
     }
-    res.render('company', { stockData: JSON.stringify(stockData), company, data: ratioData }); // Pass company data to the template
+    res.render('company', { stockData: JSON.stringify(stockData), company, data: ratioData, docData: docData }); // Pass company data to the template
   } catch (err) {
     console.error('Failed to retrieve stock price data:', err);
     res.status(500).send(err.message);
   }
 });
+
+app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
+  const ticker = req.params.ticker;
+  const question = req.body.question;
+  console.log("Question: " + question);
+  if (!question) {
+    res.status(400).json({error: "No question in the request"});
+  }
+  const sanitisedQuestion = question.trim().replaceAll('\n', ' ');
+
+  try {
+    const pinecone = await initPinecone();
+    const index = pinecone.Index(process.env.PINECONE_INDEX_NAME);
+    const vectorStore = await PineconeStore.fromExistingIndex(
+      new OpenAIEmbeddings({}),
+      {
+        pineconeIndex: index,
+        textKey: 'text',
+      },
+    );
+
+    // Create the chain
+    const chain = await makeChain(vectorStore);
+    const response = await chain.call({
+      question: sanitisedQuestion,
+      chat_history: [],
+    });
+
+    // Retrieve the stock data using the ticker from the request
+    const query = `SELECT * FROM companies WHERE ticker=$1`;
+    const values = [ticker];
+
+    let company;
+    try {
+      const result = await pool.query(query, values);
+      if (result.rows.length == 0) {
+        return res.status(404).send('Stock not found in the database');
+      }
+      company = result.rows[0];
+    } catch (err) {
+      console.error('Failed to retrieve stock from the database:', err);
+      return res.status(500).send(err.message);
+    }
+
+    try {
+      const quotes = await yahooFinance.historical({
+        symbol: ticker,
+        from: '2023-01-01',
+        to: '2023-05-26',
+        period: 'd'
+      });
+
+      const stockData = quotes.map(quote => ({
+        date: new Date(quote.date).toISOString().split('T')[0],
+        price: quote.close
+      }));
+
+      // Passing in key ratios
+      let ratioData;
+      try {
+        ratioData = (await yahooFinance2.quoteSummary(ticker)).summaryDetail;
+      } catch (err) {
+        console.error('Error getting stock data');
+        return res.status(500).send(err.message);
+      }
+
+      console.log(response);
+
+      res.render('company', {
+        stockData: JSON.stringify(stockData),
+        company,
+        data: ratioData,
+        response: {
+          text: response.text,
+          sourceDocuments: response.sourceDocuments,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to retrieve stock price data:', err);
+      res.status(500).send(err.message);
+    }
+  } catch (error) {
+    console.log(error, "Something went wrong in the route");
+    console.log(error.message);
+  }
+});
+
 
 
 app.get('/auth', (req, res) => {
@@ -407,7 +508,7 @@ app.post('/auth', limiter, passport.authenticate('local', { failureRedirect: '/a
   res.redirect('/app');
 });
 
-app.get('/admin', ensureAuthenticatedAdmin, async (req, res) => {
+app.get('/admin', ensureAuthenticatedAdmin ,async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM companies;');
     const tableData = result.rows;
@@ -420,7 +521,7 @@ app.get('/admin', ensureAuthenticatedAdmin, async (req, res) => {
 
 // POST Routes for /admin
 
-app.post('/admin', ensureAuthenticatedAdmin, upload.single('file'), [
+app.post('/admin', ensureAuthenticatedAdmin ,upload.single('file'), [
   body('market_cap').customSanitizer((value) => value ? value.replace(/,/g, '') : ''),
 ], async (req, res) => {
   const formType = req.body.formType;
