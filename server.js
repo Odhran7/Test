@@ -165,6 +165,11 @@ passport.use(new GoogleStrategy({
   proxy: true,
 },
 function(request, accessToken, refreshToken, profile, done) {
+  console.log('GoogleStrategy callback function');
+  console.log('request:', request);
+  console.log('accessToken:', accessToken);
+  console.log('refreshToken:', refreshToken);
+  console.log('profile:', profile);
   const email = profile.emails[0].value;
   pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email], (error, results) => {
     if (error) {
