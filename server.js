@@ -130,7 +130,7 @@ passport.use(
     {
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: process.env.ABSOLUTE_URI + "/linkedin/callback",
+      callbackURL: "/linkedin/callback",
       scope: ["r_emailaddress", "r_liteprofile"],
       proxy: true,
     },
@@ -156,7 +156,7 @@ passport.use(
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.ABSOLUTE_URI + "/google/callback",
+  callbackURL: "/google/callback",
   passReqToCallback: true,
   proxy: true,
 },
