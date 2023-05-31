@@ -260,6 +260,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
+  proxy: true,
   cookie: {
     secure: "auto",
     maxAge: 100000000,
