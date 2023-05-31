@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/admin.css" />
+    <title>Admin Dashboard</title>
+    <meta name="author" content="Valumetrics">    
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    
+</head>
+<body>
+    <header>
+        <a href='/'><img src="./logob.png" alt="Logo" width="250px"></a>
+    </header>
+    <h1>Admin Dashboard</h1>
+    <div class="container">
+        <form action="/admin" method="POST">
+            <p>Add Company</p>
+            <input type="hidden" name="formType" value="add-company">
+            <label for="name">Company Name (e.g Apple Inc.):</label>
+            <input type="text" id="name" name="name" required>
+            <label for="ticker">Ticker (e.g. AAPL):</label>
+            <input type="text" id="ticker" name="ticker" required>
+            <label for="market_cap">Market Cap in ones:</label>
+            <input type="text" id="market_cap" name="market_cap" required>
+            <label for="logo_url">Logo URL:</label>
+            <input type="text" id="logo_url" name="logo_url" required>
+            <div class="button-container">
+                <input type="submit" value="Add" class="input">            </div>
+
+        </form>          
+            <div class="container">
+              <form action="/admin" method="POST" enctype="multipart/form-data">
+                <p>Add Document</p>
+                <input type="hidden" name="formType" value="add-document">
+                <label for="company_id">Company ID:</label>
+                <input type="text" id="company_id" name="company_id" required>
+                <label for="document_type">Document Type:</label>
+                <input type="text" id="document_type" name="document_type" required>
+                 <label for="year">Year:</label>
+                <input type="text" id="year" name="year" required>
+                <label for="file">File:</label>
+                <input type="file" id="file" name="file" required>
+                <div class="button-container">
+                  <input type="submit" value="Upload" class="input">
+                </div>
+              </form>
+            </div>
+          </div>
+          {{#if successMessage}}
+        <div class="alert alert-success">{{successMessage}}</div>
+          {{/if}}
+          
+    </div>
+
+<table class="companies">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Ticker</th>
+      <th>Market Cap</th>
+      <th>Logo</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each tableData}}
+    <tr>
+      <td>{{this.id}}</td>
+      <td>{{this.name}}</td>
+      <td>{{this.ticker}}</td>
+      <td>{{this.market_cap}}</td>
+      <td><img src="{{this.logo_url}}" alt="Logo" width="50px"></td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+
+
+
+    
+</body>
+</html>
