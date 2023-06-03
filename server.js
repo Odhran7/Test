@@ -53,7 +53,10 @@ app.use(cors({
     'https://valumetrics.ai',
     'https://valumetrics.ai/google/callback',
     'https://valumetrics.ai/linkedin/callback',
-  ]
+    'https://accounts.google.com/'
+  ],
+  methods: 'GET, POST, PUT, DELETE',
+  credentials: true,
 }));
 
 app.set('trust proxy', 1);
