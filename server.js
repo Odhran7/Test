@@ -281,6 +281,16 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Logging 
+app.use((req, res, next) => {
+  console.log('Session: ', req.session);
+  next();
+});
+app.use((req, res, next) => {
+  console.log('Session Store: ', req.sessionStore);
+  next();
+});
+
 
 app.get('/app', ensureAuthenticated, async (req, res) => {
   let username = 'undefined';
