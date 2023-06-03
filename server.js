@@ -642,23 +642,49 @@ app.post('/sign-up', [
 
 // Oauth routes
 
+// app.get('/google',
+//   passport.authenticate('google', {
+//           scope:
+//               ['email', 'profile']
+//       }
+//   ));
+
 app.get('/google',
-  passport.authenticate('google', {
-          scope:
-              ['email', 'profile']
-      }
-  ));
-
-app.get('/google/callback',
-  passport.authenticate('google', {
-      failureRedirect: '/auth',
-  }),
-  function (req, res) {
-    console.log("GOt to here whoop")
-    res.redirect('/app')
-
+  function(req, res, next) {
+    console.log('Inside GET /google route, about to call passport.authenticate');
+    next();
+  },
+  passport.authenticate('google', { scope: ['email', 'profile'] }),
+  function(req, res) {
+    console.log('Returned from passport.authenticate in GET /google route');
+    // This function will not be called if the authentication process is not complete.
   }
 );
+
+
+// app.get('/google/callback',
+//   passport.authenticate('google', {
+//       failureRedirect: '/auth',
+//   }),
+//   function (req, res) {
+//     console.log("GOt to here whoop")
+//     res.redirect('/app')
+
+//   }
+// );
+
+app.get('/google/callback',
+  function(req, res, next) {
+    console.log('Inside GET /google/callback route, about to call passport.authenticate');
+    next();
+  },
+  passport.authenticate('google', { failureRedirect: '/auth', failureFlash: true }),
+  function(req, res) {
+    console.log('Returned from passport.authenticate in GET /google/callback route');
+    res.redirect('/app')
+  }
+);
+
 
 app.get(
   "/linkedin",
