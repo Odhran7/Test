@@ -260,7 +260,8 @@ passport.deserializeUser(async (req, data, done) => {
 
 const sessionStore = new pgSession({
   pool,
-  tableName: 'session'
+  tableName: 'session',
+  errorLog: console.error
 });
 
 app.use(session({ 
@@ -276,21 +277,43 @@ app.use(session({
   }
   }));
 
+// Log events from sessionStore
+
+sessionStore.on('error', (error) => {
+  console.error('Session store error:', error);
+});
+
+// Test db for production
+
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Database connection error:', err);
+  } else {
+    console.log('Database connection successful:', res.rows[0]);
+  }
+});
+
+// Check session storing
+
+app.use((req, res, next) => {
+  req.session.test = 'test';
+  req.session.save((err) => {
+    if (err) {
+      console.error('Error saving session:', err);
+    } else {
+      console.log('Session saved successfully.');
+    }
+    next();
+  });
+});
+
+
+
+
 // Set up Passport
 
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Logging 
-app.use((req, res, next) => {
-  console.log('Session: ', req.session);
-  next();
-});
-app.use((req, res, next) => {
-  console.log('Session Store: ', req.sessionStore);
-  next();
-});
-
 
 app.get('/app', ensureAuthenticated, async (req, res) => {
   let username = 'undefined';
