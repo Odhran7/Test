@@ -654,12 +654,15 @@ app.get('/google',
     console.log('Inside GET /google route, about to call passport.authenticate');
     next();
   },
-  passport.authenticate('google', { scope: ['email', 'profile'] }),
+  passport.authenticate('google', { 
+    scope: ['email', 'profile'],
+    failureFlash: true 
+  }),
   function(req, res) {
     console.log('Returned from passport.authenticate in GET /google route');
-    // This function will not be called if the authentication process is not complete.
   }
 );
+
 
 
 // app.get('/google/callback',
