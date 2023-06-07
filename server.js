@@ -183,8 +183,9 @@ hbs.registerHelper('get', function(object, key) {
 });
 
 // Serialize the user
+// Serialize the user
 passport.serializeUser((user, done) => {
-  console.log(user);
+  console.log('Serializing:', user);
   user.strategy = user.password ? "local" : "oauth";
   if(user.password) { //Local strategy
     done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin, strategy: user.strategy});
@@ -192,6 +193,7 @@ passport.serializeUser((user, done) => {
     done(null, user);
   }
 });
+
 
 // Deserialize the user
 passport.deserializeUser(async (req, data, done) => {
