@@ -184,6 +184,7 @@ hbs.registerHelper('get', function(object, key) {
 
 // Serialize the user
 passport.serializeUser((user, done) => {
+  console.log(user);
   user.strategy = user.password ? "local" : "oauth";
   if(user.password) { //Local strategy
     done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin, strategy: user.strategy});
@@ -194,6 +195,7 @@ passport.serializeUser((user, done) => {
 
 // Deserialize the user
 passport.deserializeUser(async (req, data, done) => {
+  console.log(data);
   try {
     if (data.strategy == "local") {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
@@ -213,7 +215,6 @@ passport.deserializeUser(async (req, data, done) => {
         return done(new Error('Invalid email'));
       }
     } else if (data.strategy == "oauth") {
-      console.log("Oauth data" + data);
       const email = data.email;
       const username = data.username;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
