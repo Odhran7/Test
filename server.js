@@ -84,14 +84,17 @@ passport.use(new LocalStrategy(async (username, password, done) => {
     const passwordMatch = await compare(password, user.password);
 
     if (passwordMatch) {
-      return done(null, username);
+      return done(null, user); // Pass the entire user object
     } else {
       return done(null, false);
     }
   } catch (error) {
+    console.error('Error in LocalStrategy:', error);
     return done(error);
   }
 }));
+
+
 
 // Setting up multer storage
 
@@ -109,26 +112,8 @@ const storage = multer.diskStorage({
 });
 
 // Create multer upload instance
+
 const upload = multer({ storage });
-
-
-const ensureAuthenticated = (req, res, next) => {
-  if (req.isAuthenticated()) {
-    req.user = req.session.passport.user;
-    return next();
-  } else {
-    res.redirect('/auth');
-  }
-};
-
-const ensureAuthenticatedAdmin = (req, res, next) => {
-  if (req.isAuthenticated() && req.user.is_admin) {
-    req.user = req.session.passport.user;
-    return next();
-  } else {
-    res.redirect('/auth');
-  }
-}
 
 // Setting up LinkedIn OAuth
 
@@ -168,11 +153,6 @@ passport.use(new GoogleStrategy({
   proxy: true,
 },
 function(request, accessToken, refreshToken, profile, done) {
-  console.log('GoogleStrategy callback function');
-  console.log('request:', request);
-  console.log('accessToken:', accessToken);
-  console.log('refreshToken:', refreshToken);
-  console.log('profile:', profile);
   const email = profile.emails[0].value;
   pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email], (error, results) => {
     if (error) {
@@ -204,19 +184,35 @@ hbs.registerHelper('get', function(object, key) {
 
 // Serialize the user
 passport.serializeUser((user, done) => {
-  done(null, user);
+  const userWithoutPassword = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    is_admin: user.is_admin
+  };
+
+  done(null, userWithoutPassword);
 });
 
 // Deserialize the user
 
 passport.deserializeUser(async (req, data, done) => {
+  console.log('Deserializing user. Input data:', data);
+  
   try {
+    // The data is a string, indicating this is an email
     if (typeof data === 'string') {
-      // Local strategy deserialization (using email)
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
-      const values = [data];
+      const values = [data.toLowerCase().trim()];
+      
+      console.log('Executing query:', query, 'with values:', values);
+      
       const result = await pool.query(query, values);
+      
+      console.log('Query result:', result);
+      
       const user = result.rows[0];
+      
       if (user) {
         const deserializedUser = {
           id: user.id,
@@ -224,35 +220,53 @@ passport.deserializeUser(async (req, data, done) => {
           email: user.email,
           is_admin: user.is_admin
         };
+
         req.user = deserializedUser;
+        
+        console.log('Deserialized user:', deserializedUser);
+
         return done(null, deserializedUser);
       } else {
         return done(new Error('Invalid email'));
       }
     } else {
+      // The data is an object, indicating this is an OAuth profile
       const email = data.emails[0].value;
       const username = data.displayName;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
+      
+      console.log('Executing query:', query, 'with email:', email);
+
       const result = await pool.query(query, [email]);
+
+      console.log('Query result:', result);
+      
       if (result.rows.length === 0) {
         const insertQuery = 'INSERT INTO users (username, email) VALUES ($1, $2)';
+        
+        console.log('Inserting new user:', insertQuery, 'with username and email:', username, email);
+        
         await pool.query(insertQuery, [username, email]);
       }
+
       const deserializedUser = {
         id: null,
         username: username,
         email: email,
         is_admin: false
       };
+
       req.user = deserializedUser;
+      
+      console.log('Deserialized user:', deserializedUser);
+
       return done(null, deserializedUser);
     }
   } catch (error) {
+    console.error('Error in deserializeUser:', error);
     return done(error);
   }
 });
-
-
 
 
 
@@ -282,12 +296,31 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+
+const ensureAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated()) {
+    return next();
+  } else {
+    res.redirect('/auth');
+  }
+};
+
+
+const ensureAuthenticatedAdmin = (req, res, next) => {
+  if (req.isAuthenticated() && req.user.is_admin) {
+    req.user = req.session.passport.user;
+    return next();
+  } else {
+    res.redirect('/auth');
+  }
+}
+
 app.get('/app', ensureAuthenticated, async (req, res) => {
   let username = 'undefined';
   if (req.user.provider == 'linkedin') {
     username = req.user.displayName;
   } else {
-    username = req.user;
+    username = req.user.username;
   }
 
   // Obtaining number of users 
@@ -390,7 +423,6 @@ app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
     const docValues = [result.rows[0].id];
     const docResults = await pool.query(docQuery, docValues);
     docData = docResults.rows;
-    console.log(docData);
     if (result.rows.length == 0) { 
       return res.status(404).send('Stock not found in the database');
     }
@@ -399,7 +431,6 @@ app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
     console.error('Failed to retrieve stock from the database:', err);
     return res.status(500).send(err.message);
   }
-  console.log(docData);
   
   try {
     const quotes = await yahooFinance.historical({
@@ -434,7 +465,7 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
   const question = req.body.question;
   console.log("Question: " + question);
   if (!question) {
-    res.status(400).json({error: "No question in the request"});
+    res.status(400).json({ error: "No question in the request" });
   }
   const sanitisedQuestion = question.trim().replaceAll('\n', ' ');
 
@@ -461,12 +492,19 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
     const values = [ticker];
 
     let company;
+    let docData;
     try {
       const result = await pool.query(query, values);
       if (result.rows.length == 0) {
         return res.status(404).send('Stock not found in the database');
       }
       company = result.rows[0];
+
+      // Fetch the document data for the company
+      const docQuery = `SELECT * FROM documents WHERE company_id=$1;`;
+      const docValues = [company.id];
+      const docResults = await pool.query(docQuery, docValues);
+      docData = docResults.rows;
     } catch (err) {
       console.error('Failed to retrieve stock from the database:', err);
       return res.status(500).send(err.message);
@@ -494,8 +532,6 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
         return res.status(500).send(err.message);
       }
 
-      console.log(response);
-
       res.render('company', {
         stockData: JSON.stringify(stockData),
         company,
@@ -504,6 +540,7 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
           text: response.text,
           sourceDocuments: response.sourceDocuments,
         },
+        docData: docData // Pass the document data to the template
       });
     } catch (err) {
       console.error('Failed to retrieve stock price data:', err);
@@ -515,6 +552,7 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
   }
 });
 
+
 app.get('/privacy-policy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/privacy-policy.html'));
 })
@@ -525,7 +563,10 @@ app.get('/auth', (req, res) => {
 });
 
 app.post('/auth', limiter, passport.authenticate('local', { failureRedirect: '/auth' }), (req, res) => {
-  res.redirect('/app');
+  req.login(req.user, function(err) {
+    if (err) { return next(err); }
+    return res.redirect('/app');
+  });
 });
 
 app.get('/admin', ensureAuthenticatedAdmin ,async (req, res) => {
@@ -651,7 +692,6 @@ app.post('/sign-up', [
 
 app.get('/google',
   function(req, res, next) {
-    console.log('Inside GET /google route, about to call passport.authenticate');
     next();
   },
   passport.authenticate('google', { 
@@ -659,7 +699,6 @@ app.get('/google',
     failureFlash: true 
   }),
   function(req, res) {
-    console.log('Returned from passport.authenticate in GET /google route');
   }
 );
 
@@ -678,12 +717,10 @@ app.get('/google',
 
 app.get('/google/callback',
   function(req, res, next) {
-    console.log('Inside GET /google/callback route, about to call passport.authenticate');
     next();
   },
   passport.authenticate('google', { failureRedirect: '/auth', failureFlash: true }),
   function(req, res) {
-    console.log('Returned from passport.authenticate in GET /google/callback route');
     res.redirect('/app')
   }
 );
