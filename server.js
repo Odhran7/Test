@@ -205,7 +205,7 @@ passport.deserializeUser(async (req, data, done) => {
           id: user.id,
           username: user.username,
           email: user.email,
-          is_admin: user.is_admin
+          is_admin: false;
         };
         req.user = deserializedUser;
         return done(null, deserializedUser);
