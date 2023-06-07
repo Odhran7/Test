@@ -213,6 +213,7 @@ passport.deserializeUser(async (req, data, done) => {
         return done(new Error('Invalid email'));
       }
     } else if (data.strategy == "oauth") {
+      console.log("Oauth data" + data);
       const email = data.email;
       const username = data.username;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
