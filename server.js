@@ -195,10 +195,10 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser(async (req, data, done) => {
   try {
-    // If data has an 'email' property, it is from Local strategy
-    if ('email' in data) {
+    // If data is a string, it is from Local strategy
+    if (typeof data === 'string') {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
-      const values = [data.email];
+      const values = [data];
       const result = await pool.query(query, values);
       const user = result.rows[0];
       if (user) {
@@ -214,8 +214,8 @@ passport.deserializeUser(async (req, data, done) => {
         return done(new Error('Invalid email'));
       }
     } 
-    // If data has 'emails' property, it is from OAuth strategy
-    else if ('emails' in data) {
+    // If data is an object, it is from OAuth strategy
+    else if (typeof data === 'object') {
       const email = data.emails[0].value;
       const username = data.displayName;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
@@ -239,6 +239,7 @@ passport.deserializeUser(async (req, data, done) => {
     return done(error);
   }
 });
+
 
 
 
