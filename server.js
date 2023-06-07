@@ -186,17 +186,15 @@ hbs.registerHelper('get', function(object, key) {
 passport.serializeUser((user, done) => {
   user.strategy = user.password ? "local" : "oauth";
   if(user.password) { //Local strategy
-    done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin});
+    done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin, strategy: user.strategy});
   } else { //OAuth Strategy
     done(null, user);
   }
 });
 
 // Deserialize the user
-
 passport.deserializeUser(async (req, data, done) => {
   try {
-    // If data is a string, it is from Local strategy
     if (data.strategy == "local") {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
       const values = [data.email];
@@ -214,11 +212,9 @@ passport.deserializeUser(async (req, data, done) => {
       } else {
         return done(new Error('Invalid email'));
       }
-    } 
-    // If data is an object, it is from OAuth strategy
-    else if (data.strategy == "oauth") {
-      const email = data.emails[0].value;
-      const username = data.displayName;
+    } else if (data.strategy == "oauth") {
+      const email = data.email;
+      const username = data.username;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
       const result = await pool.query(query, [email]);
       if (result.rows.length === 0) {
@@ -240,6 +236,7 @@ passport.deserializeUser(async (req, data, done) => {
     return done(error);
   }
 });
+
 
 
 
