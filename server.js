@@ -184,14 +184,11 @@ hbs.registerHelper('get', function(object, key) {
 
 // Serialize the user
 passport.serializeUser((user, done) => {
-  const userWithoutPassword = {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    is_admin: user.is_admin
-  };
-
-  done(null, userWithoutPassword);
+  if(user.password) { //Local strategy
+    done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin});
+  } else { //OAuth Strategy
+    done(null, user);
+  }
 });
 
 // Deserialize the user
