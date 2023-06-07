@@ -188,6 +188,7 @@
     box-sizing: border-box; /* Include padding and border in the total width */
     margin-left: auto; /* Center the container horizontally */
     margin-right: auto;
+    margin-top:50px;
   }
   
   /*==================================================================
