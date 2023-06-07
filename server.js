@@ -129,21 +129,20 @@ passport.use(
     async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails[0].value;
+        const username = profile.displayName; // Or an equivalent field
         const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1';
         const result = await pool.query(query, [email]);
         if (result.rows.length === 0) {
           const insertQuery = 'INSERT INTO users (username, email) VALUES ($1, $2)';
-          await pool.query(insertQuery, [email, email]);
+          await pool.query(insertQuery, [username, email]);
         }
-        done(null, profile);
+        done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'});
       } catch (error) {
         done(error);
       }
     }
   )
 );
-
-// Google OAuth2.0 Set-Up
 
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
@@ -154,24 +153,26 @@ passport.use(new GoogleStrategy({
 },
 function(request, accessToken, refreshToken, profile, done) {
   const email = profile.emails[0].value;
+  const username = profile.displayName; // Or an equivalent field
   pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email], (error, results) => {
     if (error) {
       done(error);
     } else if (results.rows.length === 0) {
       // This email isn't in our database, so create a new user
-      pool.query('INSERT INTO users (username, email) VALUES ($1, $2)', [email, email], (error) => {
+      pool.query('INSERT INTO users (username, email) VALUES ($1, $2)', [username, email], (error) => {
         if (error) {
           done(error);
         } else {
-          done(null, email);
+          done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'}); // Pass an object instead of email
         }
       });
     } else {
-      done(null, email);
+      done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'}); // Pass an object instead of email
     }
   });
 }
 ));
+
 
 // View engines
 
@@ -183,12 +184,11 @@ hbs.registerHelper('get', function(object, key) {
 });
 
 // Serialize the user
-// Serialize the user
+
 passport.serializeUser((user, done) => {
-  console.log('Serializing:', user);
   user.strategy = user.password ? "local" : "oauth";
   if(user.password) { //Local strategy
-    done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin, strategy: user.strategy});
+    done(null, {username: user.username, email: user.email, is_admin: user.is_admin, strategy: user.strategy});
   } else { //OAuth Strategy
     done(null, user);
   }
@@ -199,7 +199,6 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (req, data, done) => {
   console.log(data);
   try {
-    if (data.strategy == "local") {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
       const values = [data.email];
       const result = await pool.query(query, values);
@@ -216,26 +215,6 @@ passport.deserializeUser(async (req, data, done) => {
       } else {
         return done(new Error('Invalid email'));
       }
-    } else if (data.strategy == "oauth") {
-      const email = data.email;
-      const username = data.username;
-      const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
-      const result = await pool.query(query, [email]);
-      if (result.rows.length === 0) {
-        const insertQuery = 'INSERT INTO users (username, email) VALUES ($1, $2)';
-        await pool.query(insertQuery, [username, email]);
-      }
-      const deserializedUser = {
-        id: null,
-        username: username,
-        email: email,
-        is_admin: false
-      };
-      req.user = deserializedUser;
-      return done(null, deserializedUser);
-    } else {
-      return done(new Error('Invalid OAuth data'));
-    }
   } catch (error) {
     return done(error);
   }
