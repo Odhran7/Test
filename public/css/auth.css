@@ -544,32 +544,34 @@
 
   /*//////////////////////////////////////////////////////////////////
   [ Responsive ]*/
-  @media (max-width: 768px) {
-    .wrap-login100 {
-      padding-left: 60px;
-      padding-right: 60px;
-    }
-  
-  @media (max-width: 576px) {
-    .wrap-login100 {
-      padding-left: 15px;
-      padding-right: 15px;
-    }
-  
-    .btn-face,
-    .btn-google {
-      width: 100%;
-    }
+/* Responsive */
+@media (max-width: 768px) {
+  .wrap-login100 {
+    padding-left: 60px;
+    padding-right: 60px;
+  }
+}
+
+@media (max-width: 576px) {
+  .wrap-login100 {
+    padding-left: 15px;
+    padding-right: 15px;
   }
 
-      .logo-container {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .logo-container img {
-      width: 150px; /* Adjust the width as per your requirements */
-      height: auto;
-    }
+  .btn-face,
+  .btn-google {
+    width: 100%;
   }
+}
+
+.logo-container {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logo-container img {
+  width: 150px; /* Adjust the width as per your requirements */
+  height: auto;
+}
+
   
