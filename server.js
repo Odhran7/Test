@@ -194,21 +194,13 @@ passport.serializeUser((user, done) => {
 // Deserialize the user
 
 passport.deserializeUser(async (req, data, done) => {
-  console.log('Deserializing user. Input data:', data);
-  
   try {
-    if (typeof data === 'string') {
+    // If data has an 'email' property, it is from Local strategy
+    if ('email' in data) {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
-      const values = [data.toLowerCase().trim()];
-      
-      console.log('Executing query:', query, 'with values:', values);
-      
+      const values = [data.email];
       const result = await pool.query(query, values);
-      
-      console.log('Query result:', result);
-      
-      const user = result && result.rows && result.rows[0] ? result.rows[0] : null;
-      
+      const user = result.rows[0];
       if (user) {
         const deserializedUser = {
           id: user.id,
@@ -216,53 +208,34 @@ passport.deserializeUser(async (req, data, done) => {
           email: user.email,
           is_admin: user.is_admin
         };
-
         req.user = deserializedUser;
-        
-        console.log('Deserialized user:', deserializedUser);
-
         return done(null, deserializedUser);
       } else {
         return done(new Error('Invalid email'));
       }
-    } else {
-      if (!data || !data.emails || data.emails.length === 0) {
-        return done(new Error('Invalid OAuth data'));
-      }
-
+    } 
+    // If data has 'emails' property, it is from OAuth strategy
+    else if ('emails' in data) {
       const email = data.emails[0].value;
       const username = data.displayName;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
-      
-      console.log('Executing query:', query, 'with email:', email);
-
       const result = await pool.query(query, [email]);
-
-      console.log('Query result:', result);
-      
       if (result.rows.length === 0) {
         const insertQuery = 'INSERT INTO users (username, email) VALUES ($1, $2)';
-        
-        console.log('Inserting new user:', insertQuery, 'with username and email:', username, email);
-        
         await pool.query(insertQuery, [username, email]);
       }
-
       const deserializedUser = {
         id: null,
         username: username,
         email: email,
         is_admin: false
       };
-
       req.user = deserializedUser;
-      
-      console.log('Deserialized user:', deserializedUser);
-
       return done(null, deserializedUser);
+    } else {
+      return done(new Error('Invalid OAuth data'));
     }
   } catch (error) {
-    console.error('Error in deserializeUser:', error);
     return done(error);
   }
 });
