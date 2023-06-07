@@ -179,13 +179,14 @@
   
   
   .wrap-login100 {
-    width: 680px;
+    width: 100%;
+    max-width: 500px; /* Adjust the value as per your requirements */
     background: #fff;
     border-radius: 10px;
     position: relative;
+    padding: 25px 25px; /* Add padding to adjust the content within the container */
   }
-  
-  
+
   /*==================================================================
   [ Form ]*/
   
