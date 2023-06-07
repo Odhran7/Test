@@ -200,7 +200,6 @@ passport.deserializeUser(async (req, data, done) => {
   console.log('Deserializing user. Input data:', data);
   
   try {
-    // The data is a string, indicating this is an email
     if (typeof data === 'string') {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
       const values = [data.toLowerCase().trim()];
@@ -211,7 +210,7 @@ passport.deserializeUser(async (req, data, done) => {
       
       console.log('Query result:', result);
       
-      const user = result.rows[0];
+      const user = result && result.rows && result.rows[0] ? result.rows[0] : null;
       
       if (user) {
         const deserializedUser = {
@@ -230,7 +229,10 @@ passport.deserializeUser(async (req, data, done) => {
         return done(new Error('Invalid email'));
       }
     } else {
-      // The data is an object, indicating this is an OAuth profile
+      if (!data || !data.emails || data.emails.length === 0) {
+        return done(new Error('Invalid OAuth data'));
+      }
+
       const email = data.emails[0].value;
       const username = data.displayName;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
