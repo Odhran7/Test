@@ -184,6 +184,7 @@ hbs.registerHelper('get', function(object, key) {
 
 // Serialize the user
 passport.serializeUser((user, done) => {
+  user.strategy = user.password ? "local" : "oauth";
   if(user.password) { //Local strategy
     done(null, {id: user.id, username: user.username, email: user.email, is_admin: user.is_admin});
   } else { //OAuth Strategy
@@ -196,9 +197,9 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (req, data, done) => {
   try {
     // If data is a string, it is from Local strategy
-    if (typeof data === 'string') {
+    if (data.strategy == "local") {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
-      const values = [data];
+      const values = [data.email];
       const result = await pool.query(query, values);
       const user = result.rows[0];
       if (user) {
@@ -215,7 +216,7 @@ passport.deserializeUser(async (req, data, done) => {
       }
     } 
     // If data is an object, it is from OAuth strategy
-    else if (typeof data === 'object') {
+    else if (data.strategy == "oauth") {
       const email = data.emails[0].value;
       const username = data.displayName;
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
