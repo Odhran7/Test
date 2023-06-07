@@ -185,8 +185,11 @@
     border-radius: 10px;
     position: relative;
     padding: 25px 25px; /* Add padding to adjust the content within the container */
+    box-sizing: border-box; /* Include padding and border in the total width */
+    margin-left: auto; /* Center the container horizontally */
+    margin-right: auto;
   }
-
+  
   /*==================================================================
   [ Form ]*/
   
