@@ -197,7 +197,6 @@ passport.serializeUser((user, done) => {
 
 // Deserialize the user
 passport.deserializeUser(async (req, data, done) => {
-  console.log(data);
   try {
       const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1;';
       const values = [data.email];
@@ -245,6 +244,19 @@ app.use(session({
   }
   }));
 
+// app.use(session({ 
+//   secret: process.env.SECRET_KEY,
+//   resave: false,
+//   saveUninitialized: false,
+//   store: sessionStore,
+//   proxy: true,
+//   cookie: {
+//     secure: false,
+//     maxAge: 100000000,
+//   }
+// }));
+
+
 // Set up Passport
 
 app.use(passport.initialize());
@@ -269,7 +281,7 @@ const ensureAuthenticatedAdmin = (req, res, next) => {
   }
 }
 
-app.get('/app', ensureAuthenticated, async (req, res) => {
+app.get('/app', ensureAuthenticatedAdmin, async (req, res) => {
   let username = 'undefined';
   if (req.user.provider == 'linkedin') {
     username = req.user.displayName;
@@ -287,7 +299,7 @@ app.get('/app', ensureAuthenticated, async (req, res) => {
 
   const companiesQuery = `SELECT * FROM companies;`;
   const companiesResult = await pool.query(companiesQuery);
-  const companies = companiesResult.rows[0].count;
+  const companies = companiesResult.rowCount;
   
 
   // Obtaining the number of documents
@@ -295,6 +307,12 @@ app.get('/app', ensureAuthenticated, async (req, res) => {
   const documentsQuery = `SELECT COUNT(*) FROM documents;`;
   const documentsResult = await pool.query(documentsQuery);
   const documents = documentsResult.rows[0].count;
+
+  // Obtaining minutes saved
+
+  const searchQuery = `SELECT COUNT(*) FROM search_history;`;
+  const searchResult = await pool.query(searchQuery);
+  const searchNumber = searchResult.rows[0].count;
 
   // Obtaining the number of documents per company
 
@@ -309,12 +327,19 @@ app.get('/app', ensureAuthenticated, async (req, res) => {
     const documentsPerCompany = documentsPerIdResult.rows[0].count;
     ids[id] = parseInt(documentsPerCompany);
   }
+
+  const metadata = {
+    companies: companies,
+    documents: documents,
+    users: users,
+    timeSaved: searchNumber,
+  };
   
-  res.render('app', { username: username, ids:ids });
+  res.render('app', { username: username, ids:ids, metadata: metadata });
 })
 
 
-app.get('/app/companies', ensureAuthenticated, async (req, res) => {
+app.get('/app/companies', ensureAuthenticatedAdmin, async (req, res) => {
   const queryCompany = `SELECT * FROM companies;`;
   const results = await pool.query(queryCompany);
   const rows = results.rows;
@@ -353,10 +378,10 @@ app.get('/app/companies', ensureAuthenticated, async (req, res) => {
       tickers.push({ name, ticker, marketCap, logoUrl, docs });
     }
   }
-  res.render('companies', { tickers });
+  res.render('companies', { tickers: tickers, JSONTickers: JSON.stringify(tickers) });
 });
 
-app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
+app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 
   const ticker = req.params.ticker;
 
@@ -414,7 +439,7 @@ app.get('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
   }
 });
 
-app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
+app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
   const ticker = req.params.ticker;
   const question = req.body.question;
   console.log("Question: " + question);
@@ -422,6 +447,23 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
     res.status(400).json({ error: "No question in the request" });
   }
   const sanitisedQuestion = question.trim().replaceAll('\n', ' ');
+
+  // Insert into the database
+
+  /*
+        id: document_id,
+      type: document_type,
+      year: year,
+  */
+
+  try {
+    const insertQuery = `INSERT INTO search_history (user_id, prompt) VALUES ($1, $2)`;
+    const values = [req.user.id, sanitisedQuestion];
+    const result = await pool.query(insertQuery, values);
+  } catch (err) {
+      console.error('Failed to insert query into the database', err);
+      return res.status(500).send(err.message);
+  }
 
   try {
     const pinecone = await initPinecone();
@@ -435,7 +477,11 @@ app.post('/app/company/:ticker', ensureAuthenticated, async (req, res) => {
     );
 
     // Create the chain
-    const chain = await makeChain(vectorStore);
+    const filter = {
+
+    };
+
+    const chain = await makeChain(vectorStore, filter);
     const response = await chain.call({
       question: sanitisedQuestion,
       chat_history: [],

@@ -124,7 +124,7 @@ If the question is not related to the context, politely respond that you are tun
 Question: {question}
 Helpful answer in markdown:`;
 
-const makeChain = async (vectorStore) => {
+const makeChain = async (vectorStore, filter) => {
   try {
       // Initialize the Pinecone client
       // const client = new PineconeClient();

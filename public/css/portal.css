@@ -1595,7 +1595,6 @@ progress {
         outline: none;
         background-color: #f3f3f4;
         color: #0d0c22;
-        transition: .3s ease;
        }
        
        .input::placeholder {
@@ -1604,10 +1603,158 @@ progress {
        
        .input:focus, input:hover {
         outline: none;
-        border-color: rgba(234,76,137,0.4);
+        border-color: rgba(255, 250, 250, 0.4);
         background-color: #fff;
-        box-shadow: 0 0 0 4px rgb(234 76 137 / 10%);
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
        }
+
+       .form__group {
+        position: relative;
+        padding: 20px 0 0;
+        width: 100%;
+        max-width: 180px;
+        margin-bottom: 8px;
+      }
+      
+      .form__field {
+        font-family: inherit;
+        width: 100%;
+        border: none;
+        border-bottom: 2px solid #000;
+        outline: 0;
+        font-size: 17px;
+        color: #000;
+        padding: 7px 0;
+        background: transparent;
+        transition: border-color 0.2s;
+        margin-bottom: 8px;
+      }
+      
+      .form__field::placeholder {
+        color: transparent;
+      }
+      
+      .form__field:placeholder-shown ~ .form__label {
+        font-size: 17px;
+        cursor: text;
+        top: 20px;
+      }
+      
+      .form__label {
+        position: absolute;
+        top: 0;
+        display: block;
+        transition: 0.2s;
+        font-size: 17px;
+        color: #000;
+        pointer-events: none;
+        margin-bottom: 8px;
+      }
+      
+      .form__field:focus {
+        padding-bottom: 6px;
+        font-weight: 700;
+        border-width: 3px;
+        border-image: linear-gradient(to right, gray, #000);
+        border-image-slice: 1;
+      }
+      
+      .form__field:focus ~ .form__label {
+        position: absolute;
+        top: 0;
+        display: block;
+        transition: 0.2s;
+        font-size: 17px;
+        color: gray;
+        font-weight: 700;
+      }
+      
+      /* reset input */
+      .form__field:required, .form__field:invalid {
+        box-shadow: none;
+      }
+      .card a {
+        text-decoration: none; /* Added this line to remove underlining */
+      }
+      
+      .card {
+        width: 100%;
+        border-radius: 0.5rem;
+        background-color: #000;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        border: 1px solid transparent;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .content {
+        padding: 1.1rem;
+        flex-grow: 1;
+        overflow: hidden;
+      }
+      
+      .image {
+        object-fit: cover;
+        width: 100%;
+        height: 150px;
+        background-color: gray;
+      }
+      
+      .title {
+        color: #fff;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
+        font-weight: 600;
+      }
+      
+      .desc {
+        margin-top: 0.5rem;
+        color: #6B7280;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+      }
+      
+      .action {
+        display: inline-flex;
+        margin-top: 1rem;
+        color: #ffffff;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        align-items: center;
+        gap: 0.25rem;
+        background-color: gray;
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+      
+      .action span {
+        transition: .3s ease;
+      }
+      
+      .action:hover span {
+        transform: translateX(4px);
+      }
+      .source-documents-list {
+        display: flex;
+        flex-wrap: wrap;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .source-documents-list li {
+        width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-all;  
+        font-size: 15px;
+      }
+      
+      .source-documents-list li span {
+        display: block;
+        word-wrap: break-word;
+      }
+      
        
        .icon {
         position: absolute;
@@ -1616,7 +1763,136 @@ progress {
         width: 1rem;
         height: 1rem;
        }       
-
+       .form {
+        --background: #ffffff;
+        --text: #414856;
+        --radio: #7C96B2;
+        --radio-checked: #4F29F0;
+        --radio-size: 20px;
+        --width: 150px;
+        --height: 140px;
+        --border-radius: 10px;
+        background: var(--background);
+        width: var(--width);
+        height: var(--height);
+        border-radius: var(--border-radius);
+        color: var(--text);
+        position: relative;
+        box-shadow: 0 10px 30px rgba(65, 72, 86, 0.05);
+        padding: 30px 20px;
+        display: grid;
+        grid-template-columns: auto var(--radio-size);
+        align-items: center;
+      }
+      
+      .form label {
+        cursor: pointer;
+      }
+      
+      .form input[type="radio"] {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        position: relative;
+        height: var(--radio-size);
+        width: var(--radio-size);
+        outline: none;
+        margin: 0;
+        cursor: pointer;
+        border: 2px solid var(--radio);
+        background: transparent;
+        border-radius: 50%;
+        display: grid;
+        justify-self: end;
+        justify-items: center;
+        align-items: center;
+        overflow: hidden;
+        transition: border .5s ease;
+      }
+      
+      .form input[type="radio"]::before, .form input[type="radio"]::after {
+        content: "";
+        display: flex;
+        justify-self: center;
+        border-radius: 50%;
+      }
+      
+      .form input[type="radio"]::before {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: var(--background);
+        z-index: 1;
+        opacity: var(--opacity, 1);
+      }
+      
+      .form input[type="radio"]::after {
+        position: relative;
+        width: calc(100% /2);
+        height: calc(100% /2);
+        background: var(--radio-checked);
+        top: var(--y, 100%);
+        transition: top 0.5s cubic-bezier(0.48, 1.97, 0.5, 0.63);
+      }
+      
+      .form input[type="radio"]:checked {
+        --radio: var(--radio-checked);
+      }
+      
+      .form input[type="radio"]:checked::after {
+        --y: 0%;
+        animation: stretch-animate .3s ease-out .17s;
+      }
+      
+      .form input[type="radio"]:checked::before {
+        --opacity: 0;
+      }
+      
+      .form input[type="radio"]:checked ~ input[type="radio"]::after {
+        --y: -100%;
+      }
+      
+      .form input[type="radio"]:not(:checked)::before {
+        --opacity: 1;
+        transition: opacity 0s linear .5s;
+      }
+      
+      @keyframes stretch-animate {
+        0% {
+          transform: scale(1, 1);
+        }
+      
+        28% {
+          transform: scale(1.15, 0.85);
+        }
+      
+        50% {
+          transform: scale(0.9, 1.1);
+        }
+      
+        100% {
+          transform: scale(1, 1);
+        }
+      }
+      
+      .socials {
+        position: fixed;
+        display: block;
+        left: 20px;
+        bottom: 20px;
+      }
+      
+      .socials > a {
+        display: block;
+        width: 30px;
+        opacity: .2;
+        transform: scale(var(--scale, 0.8));
+        transition: transform 0.3s cubic-bezier(0.38, -0.12, 0.24, 1.91);
+      }
+      
+      .socials > a:hover {
+        --scale: 1;
+      }
+      
     .g-lg-1,
     .gx-lg-1 {
         --bs-gutter-x: 0.25rem
@@ -2374,7 +2650,6 @@ progress {
     -moz-appearance: none;
     appearance: none;
     border-radius: .375rem;
-    transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out
 }
 
 @media(prefers-reduced-motion: reduce) {
