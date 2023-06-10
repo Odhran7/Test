@@ -163,11 +163,11 @@ function(request, accessToken, refreshToken, profile, done) {
         if (error) {
           done(error);
         } else {
-          done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'}); // Pass an object instead of email
+          done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'});
         }
       });
     } else {
-      done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'}); // Pass an object instead of email
+      done(null, {email: email, username: username, is_admin: false, strategy: 'oauth'}); 
     }
   });
 }
@@ -207,7 +207,7 @@ passport.deserializeUser(async (req, data, done) => {
           id: user.id,
           username: user.username,
           email: user.email,
-          is_admin: false,
+          is_admin: user.is_admin,
         };
         req.user = deserializedUser;
         return done(null, deserializedUser);
@@ -231,6 +231,9 @@ const sessionStore = new pgSession({
   errorLog: console.error
 });
 
+
+// This is for production (cookie settings)
+
 app.use(session({ 
   secret: process.env.SECRET_KEY,
   resave: false,
@@ -243,6 +246,9 @@ app.use(session({
     sameSite: "none",
   }
   }));
+
+// This is for development ssl not required as served over http
+
 
 // app.use(session({ 
 //   secret: process.env.SECRET_KEY,
@@ -262,6 +268,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Will put in for production but right now admin needed to access all application sites 
 
 const ensureAuthenticated = (req, res, next) => {
   if (req.isAuthenticated()) {
@@ -274,7 +281,6 @@ const ensureAuthenticated = (req, res, next) => {
 
 const ensureAuthenticatedAdmin = (req, res, next) => {
   if (req.isAuthenticated() && req.user.is_admin) {
-    req.user = req.session.passport.user;
     return next();
   } else {
     res.redirect('/auth');
@@ -357,7 +363,7 @@ app.get('/app/companies', ensureAuthenticatedAdmin, async (req, res) => {
     const marketCap = row.market_cap;
     const logoUrl = row.logo_url;
     const docs = parseInt(resultDocs.rows[0].count);
-
+    // Not actually needed but might be needed later
     const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`;
     try {
       const data = await fetch(url);
@@ -450,12 +456,6 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 
   // Insert into the database
 
-  /*
-        id: document_id,
-      type: document_type,
-      year: year,
-  */
-
   try {
     const insertQuery = `INSERT INTO search_history (user_id, prompt) VALUES ($1, $2)`;
     const values = [req.user.id, sanitisedQuestion];
@@ -476,7 +476,7 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
       },
     );
 
-    // Create the chain
+    // Create the chain - needs to be created...
     const filter = {
 
     };
@@ -612,6 +612,7 @@ app.post('/admin', ensureAuthenticatedAdmin ,upload.single('file'), [
       }
 
       await ingestDoc(file, company_id, document_type, year);
+      // Not needed 
       /*
       const fileName = `${company_id}_${document_type}_${year}_${file.originalname}`;
       const filePath = `docs/${company_id}/${year}/${fileName}`;
@@ -683,13 +684,6 @@ app.post('/sign-up', [
 
 // Oauth routes
 
-// app.get('/google',
-//   passport.authenticate('google', {
-//           scope:
-//               ['email', 'profile']
-//       }
-//   ));
-
 app.get('/google',
   function(req, res, next) {
     next();
@@ -701,19 +695,6 @@ app.get('/google',
   function(req, res) {
   }
 );
-
-
-
-// app.get('/google/callback',
-//   passport.authenticate('google', {
-//       failureRedirect: '/auth',
-//   }),
-//   function (req, res) {
-//     console.log("GOt to here whoop")
-//     res.redirect('/app')
-
-//   }
-// );
 
 app.get('/google/callback',
   function(req, res, next) {
@@ -769,9 +750,7 @@ app.use(function (err, req, res, next) {
   });
 });
 
-
-
-
+// Run server
 
 const port = process.env.PORT || 3000;
 app.listen(port, function () {
