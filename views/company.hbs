@@ -88,23 +88,34 @@
                         <div class="search-mobile-trigger d-sm-none col">
                             <i class="search-mobile-trigger-icon fas fa-search"></i>
                         </div><!--//col-->
-						<div class="app-search-box col">
+												<div class="app-search-box col">
                             <form class="app-search-form" action="/app/company/{{ company.ticker }}" method="POST">
-                                <input type="input" placeholder="Search through docs..." name="question" class="form-control search-input">
+                                <input id="question" type="input" placeholder="Search through docs..." name="question" class="form-control search-input">
                                 <button type="submit" class="btn search-btn btn-primary" value="Submit">
                                     <i class="fas fa-search"></i>
                                 </button>
-                            </form>
+                            
                         </div><!--//app-search-box-->
-											<div class="new-element col-auto">
-						<select class="form-select w-auto" >
-							<option selected value="option-1">All</option>
-							<option value="option-2">This week</option>
-							<option value="option-3">This month</option>
-							<option value="option-4">Last 3 months</option>
-							
-					  </select>
-					</div><!--//new-element-->
+<div class="new-element col-auto" style="width: 150px;">
+    <div class="filter-dropdown">
+        <span class="filter-label">Filter</span>
+        <div class="dropdown-content">
+            <select class="form-select w-auto" id="document-type">
+                <option selected value="All">All</option>
+                <option value="10k">10k</option>
+                <option value="News Article">News</option>
+                <option value="Equity Research">Research</option>
+            </select>
+            <select class="form-select w-auto" id="year">
+                <option selected value="All">All</option>
+                <option value="2022">2022</option>
+                <option value="2021">2021</option>
+                <option value="2020">2020</option>
+            </select>
+        </div>
+    </div>
+</div>
+	</form>
                         <div class="app-utilities col-auto">
 
 
@@ -465,6 +476,59 @@
    
 		   s0.parentNode.insertBefore(s1, s0);
 	   })();
+   </script>
+   <script>
+var filterLabel = document.querySelector('.filter-label');
+var dropdownContent = document.querySelector('.dropdown-content');
+
+// Toggle the dropdown content when the filter label is clicked
+filterLabel.addEventListener('click', function() {
+    if (dropdownContent.style.display === 'none' || dropdownContent.style.display === '') {
+        dropdownContent.style.display = 'block';
+    } else {
+        dropdownContent.style.display = 'none';
+    }
+});
+
+// Close the dropdown content when clicking outside of it
+window.addEventListener('click', function(event) {
+    if (!filterLabel.contains(event.target) && !dropdownContent.contains(event.target)) {
+        dropdownContent.style.display = 'none';
+    }
+});
+
+// Hide the dropdown content on mobile devices by default
+function hideDropdownOnMobile() {
+    if (window.innerWidth <= 767) {
+        dropdownContent.style.display = 'none';
+    }
+}
+
+// Initial hide on page load
+hideDropdownOnMobile();
+
+// Recalculate on window resize
+window.addEventListener('resize', hideDropdownOnMobile);
+
+
+window.onload = function () {
+  document.querySelector('.app-search-form').addEventListener('submit', function(e) {
+      var documentType = document.getElementById('document-type').value;
+      var year = document.getElementById('year').value;
+
+      var input1 = document.createElement('input');
+      input1.setAttribute('type', 'hidden');
+      input1.setAttribute('name', 'documentType');
+      input1.setAttribute('value', documentType);
+      this.appendChild(input1);
+
+      var input2 = document.createElement('input');
+      input2.setAttribute('type', 'hidden');
+      input2.setAttribute('name', 'year');
+      input2.setAttribute('value', year);
+      this.appendChild(input2);
+  });
+}
    </script>
 
 </body>

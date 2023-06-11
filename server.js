@@ -234,22 +234,6 @@ const sessionStore = new pgSession({
 
 // This is for production (cookie settings)
 
-app.use(session({ 
-  secret: process.env.SECRET_KEY,
-  resave: false,
-  saveUninitialized: false,
-  store: sessionStore,
-  proxy: true,
-  cookie: {
-    secure: "auto",
-    maxAge: 100000000,
-    sameSite: "none",
-  }
-  }));
-
-// This is for development ssl not required as served over http
-
-
 // app.use(session({ 
 //   secret: process.env.SECRET_KEY,
 //   resave: false,
@@ -257,10 +241,26 @@ app.use(session({
 //   store: sessionStore,
 //   proxy: true,
 //   cookie: {
-//     secure: false,
+//     secure: "auto",
 //     maxAge: 100000000,
+//     sameSite: "none",
 //   }
-// }));
+//   }));
+
+// This is for development ssl not required as served over http
+
+
+app.use(session({ 
+  secret: process.env.SECRET_KEY,
+  resave: false,
+  saveUninitialized: false,
+  store: sessionStore,
+  proxy: true,
+  cookie: {
+    secure: false,
+    maxAge: 100000000,
+  }
+}));
 
 
 // Set up Passport
@@ -448,6 +448,8 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
   const ticker = req.params.ticker;
   const question = req.body.question;
+  const docType = req.body.documentType;
+  const docYear = Math.round(parseFloat(req.body.year));
   console.log("Question: " + question);
   if (!question) {
     res.status(400).json({ error: "No question in the request" });
@@ -467,7 +469,7 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 
   try {
     const pinecone = await initPinecone();
-    const index = pinecone.Index(process.env.PINECONE_INDEX_NAME);
+    const index = pinecone.Index(process.env.PINECONE_INDEX_NAME); 
     const vectorStore = await PineconeStore.fromExistingIndex(
       new OpenAIEmbeddings({}),
       {
@@ -477,15 +479,50 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
     );
 
     // Create the chain - needs to be created...
-    const filter = {
+    let filter;
+    if (docType == "All" && docYear == "All") {
+      filter = {
+        ticker: ticker,
+      };
+    } else if (docType == "All") {
+      filter = {
+        ticker: ticker,
+        year: docYear
+      };
+    } else if (docYear == "All") {
+      filter = {
+        ticker: ticker,
+        type: docType,
+      };
+    } else {
+      filter = {
+        ticker: ticker,
+        type: docType,
+        year: docYear,
+      }
+    }
 
-    };
 
-    const chain = await makeChain(vectorStore, filter);
+    const chain = await makeChain(vectorStore, filter, k = 4);
     const response = await chain.call({
       question: sanitisedQuestion,
       chat_history: [],
     });
+
+    // Set the search parameters
+    const testQuery = "dividend";
+    const newk = 5;
+    const newFilter = {
+      ticker: "AAPL",
+      type: "10k",
+      year: "2021",
+    };
+
+    // Search for documents
+    const topKDocs = await vectorStore.similaritySearch(testQuery, newk, newFilter);
+
+    // Print the top-k most similar documents
+    console.log(topKDocs);
 
     // Retrieve the stock data using the ticker from the request
     const query = `SELECT * FROM companies WHERE ticker=$1`;

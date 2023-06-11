@@ -1783,8 +1783,40 @@ progress {
         display: grid;
         grid-template-columns: auto var(--radio-size);
         align-items: center;
-      }
-      
+       }
+
+    .filter-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .filter-label {
+        display: block;
+        padding: 8px;
+        background-color: #f1f1f1;
+        cursor: pointer;
+    }
+    
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #fff;
+        width: 100%;
+        max-width: 200px;
+        border: 1px solid #ddd;
+        z-index: 1;
+        box-sizing: border-box;
+    }
+    
+    @media (max-width: 767px) {
+        .dropdown-content {
+            width: 100%;
+            max-width: none;
+            border: none;
+        }
+    }
+    
+    
       .form label {
         cursor: pointer;
       }

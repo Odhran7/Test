@@ -11,9 +11,13 @@ const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
 const { error } = require("console");
 const { OpenAI } = require('langchain/llms/openai');
 const { ConversationalRetrievalQAChain } = require('langchain/chains');
+const { Document } = require('langchain/document');
 
-//dotenv.config({ path: '../.env' });
+
+// dotenv.config({ path: '../.env' });
+
 dotenv.config();
+
 // Instantiate the database connection
 const config = pgParse.parse(process.env.DATABASE_URL);
 config.ssl = {
@@ -65,6 +69,13 @@ async function ingestDoc(file, company_id, document_type, year) {
     const result = await pool.query(query, values);
     const document_id = result.rows[0].id;
 
+    // Getting the ticker
+
+    const tickerQuery = `SELECT ticker FROM companies WHERE id = $1;`;
+    const companyId = [company_id];
+    const tickerResult = await pool.query(tickerQuery, companyId);
+    const ticker = tickerResult.rows[0].ticker;
+
     // Move the file to the target directory
     const targetDir = `public/docs/${company_id}/${year}`;
     fs.mkdirSync(targetDir, { recursive: true });
@@ -81,21 +92,26 @@ async function ingestDoc(file, company_id, document_type, year) {
       chunkOverlap: 200,
     });
 
-    const doc = await textSplitter.splitDocuments(rawDoc);
-    doc.metadata = {
+    const docs = await textSplitter.splitDocuments(rawDoc);
+    const metadata = {
       id: document_id,
+      ticker: ticker,
       type: document_type,
       year: year,
     };
+    const documentsWithMetadata = docs.map((doc) => new Document({
+      metadata,
+      pageContent: doc.pageContent,
+    }))
     
-    console.log('split doc', doc);
+    console.log('split doc', documentsWithMetadata);
 
     console.log('creating vector store...');
     /*create and store the embeddings in the vectorStore*/
     const embeddings = new OpenAIEmbeddings();
 
     //embed the PDF documents
-    await PineconeStore.fromDocuments(doc, embeddings, {
+    await PineconeStore.fromDocuments(documentsWithMetadata, embeddings, {
       pineconeIndex: index,
       namespace: process.env.PINECONE_NAME_SPACE,
       textKey: 'text',
@@ -124,24 +140,16 @@ If the question is not related to the context, politely respond that you are tun
 Question: {question}
 Helpful answer in markdown:`;
 
-const makeChain = async (vectorStore, filter) => {
+const makeChain = async (vectorStore, filter, k) => {
   try {
-      // Initialize the Pinecone client
-      // const client = new PineconeClient();
-      // await client.init({
-      //   environment: process.env.PINECONE_ENVIRONMENT,
-      //   apiKey: process.env.PINECONE_API_KEY,
-      // });
-      // const index = client.Index(process.env.PINECONE_INDEX_NAME);
-
       const model = new OpenAI({
         temperature: 0,
         modelName: 'gpt-3.5-turbo',
       });
-
+      console.log(filter);
       const chain = ConversationalRetrievalQAChain.fromLLM(
         model,
-        vectorStore.asRetriever(),
+        vectorStore.asRetriever(top_k = k),
         {
           qaTemplate: QA_PROMPT,
           questionGeneratorTemplate: CONDENSE_PROMPT,
