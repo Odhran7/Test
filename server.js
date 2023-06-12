@@ -492,7 +492,6 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
         question: tickerSanitisedQuestion,
         chat_history: [],
       });
-      console.log(response);
     } else if (docType == "All") {
       filter = {
         ticker: ticker,
