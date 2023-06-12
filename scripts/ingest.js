@@ -11,9 +11,15 @@ const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
 const { error } = require("console");
 const { OpenAI } = require('langchain/llms/openai');
 const { ConversationalRetrievalQAChain } = require('langchain/chains');
+const { Document } = require('langchain/document');
+const { Configuration, OpenAIApi } = require("openai");
 
-//dotenv.config({ path: '../.env' });
+
+
+// dotenv.config({ path: '../.env' });
+
 dotenv.config();
+
 // Instantiate the database connection
 const config = pgParse.parse(process.env.DATABASE_URL);
 config.ssl = {
@@ -65,6 +71,13 @@ async function ingestDoc(file, company_id, document_type, year) {
     const result = await pool.query(query, values);
     const document_id = result.rows[0].id;
 
+    // Getting the ticker
+
+    const tickerQuery = `SELECT ticker FROM companies WHERE id = $1;`;
+    const companyId = [company_id];
+    const tickerResult = await pool.query(tickerQuery, companyId);
+    const ticker = tickerResult.rows[0].ticker;
+
     // Move the file to the target directory
     const targetDir = `public/docs/${company_id}/${year}`;
     fs.mkdirSync(targetDir, { recursive: true });
@@ -81,21 +94,26 @@ async function ingestDoc(file, company_id, document_type, year) {
       chunkOverlap: 200,
     });
 
-    const doc = await textSplitter.splitDocuments(rawDoc);
-    doc.metadata = {
+    const docs = await textSplitter.splitDocuments(rawDoc);
+    const metadata = {
       id: document_id,
+      ticker: ticker,
       type: document_type,
       year: year,
     };
+    const documentsWithMetadata = docs.map((doc) => new Document({
+      metadata,
+      pageContent: doc.pageContent,
+    }))
     
-    console.log('split doc', doc);
+    console.log('split doc', documentsWithMetadata);
 
     console.log('creating vector store...');
     /*create and store the embeddings in the vectorStore*/
     const embeddings = new OpenAIEmbeddings();
 
     //embed the PDF documents
-    await PineconeStore.fromDocuments(doc, embeddings, {
+    await PineconeStore.fromDocuments(documentsWithMetadata, embeddings, {
       pineconeIndex: index,
       namespace: process.env.PINECONE_NAME_SPACE,
       textKey: 'text',
@@ -124,24 +142,15 @@ If the question is not related to the context, politely respond that you are tun
 Question: {question}
 Helpful answer in markdown:`;
 
-const makeChain = async (vectorStore, filter) => {
+const makeChainAll = async (vectorStore, k) => {
   try {
-      // Initialize the Pinecone client
-      // const client = new PineconeClient();
-      // await client.init({
-      //   environment: process.env.PINECONE_ENVIRONMENT,
-      //   apiKey: process.env.PINECONE_API_KEY,
-      // });
-      // const index = client.Index(process.env.PINECONE_INDEX_NAME);
-
       const model = new OpenAI({
         temperature: 0,
         modelName: 'gpt-3.5-turbo',
       });
-
       const chain = ConversationalRetrievalQAChain.fromLLM(
         model,
-        vectorStore.asRetriever(),
+        vectorStore.asRetriever(top_k = k),
         {
           qaTemplate: QA_PROMPT,
           questionGeneratorTemplate: CONDENSE_PROMPT,
@@ -154,8 +163,57 @@ const makeChain = async (vectorStore, filter) => {
   }
 } 
 
+const makeChainSearch = async (sanitisedQuestion, vectorStore, k, filter) => {
+
+    // Similarity Search since asRetriever() does not support filtering yet
+
+    const topKDocs = await vectorStore.similaritySearch(sanitisedQuestion, k, filter);
+    const context = topKDocs.map((doc) => doc.pageContent).join(' '); 
+
+    const QA_PROMPT = `You are a helpful AI assistant. Use the following pieces of context to answer the question at the end.
+      If you don't know the answer, just say you don't know. DO NOT try to make up an answer.
+      If the question is not related to the context, politely respond that you are tuned to only answer questions that are related to the context.
+
+      ${context}
+
+      Question: ${sanitisedQuestion}
+      Helpful answer in markdown:`;
+      const messages = [
+        {role: 'system', content: QA_PROMPT},
+        {role: 'user', content: sanitisedQuestion}
+      ];
+
+    // Initialise OpenAI 
+
+    const configuration = new Configuration({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    const openai = new OpenAIApi(configuration);
+
+    const completion = await openai.createChatCompletion({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: QA_PROMPT},
+        { role: "user", content: sanitisedQuestion },
+      ],
+    });
+    
+    const chatResponse = completion.data.choices[0].message.content;
+  
+
+    // Set response obj
+
+    response = {
+      text: chatResponse,
+      sourceDocuments: topKDocs,
+    };
+    return response;
+
+};
+
 module.exports = {
   ingestDoc,
-  makeChain,
+  makeChainAll,
   initPinecone,
+  makeChainSearch,
 };

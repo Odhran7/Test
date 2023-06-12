@@ -20,9 +20,11 @@ const yahooFinance = require('yahoo-finance');
 const yahooFinance2 = require('yahoo-finance2').default;
 const multer = require('multer');
 const flash = require('connect-flash');
-const { ingestDoc, makeChain, initPinecone } = require('./scripts/ingest');
+const { ingestDoc, makeChainAll, initPinecone, makeChainSearch } = require('./scripts/ingest');
 const { PineconeStore } = require('langchain/vectorstores/pinecone');
 const { OpenAIEmbeddings } = require('langchain/embeddings/openai');
+const { VectorOperationsApi } = require('@pinecone-database/pinecone/dist/pinecone-generated-ts-fetch');
+
 
 
 dotenv.config();
@@ -446,13 +448,17 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 });
 
 app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
+
   const ticker = req.params.ticker;
   const question = req.body.question;
-  console.log("Question: " + question);
+  const docType = req.body.documentType;
+  const docYear = req.body.year;
+
   if (!question) {
     res.status(400).json({ error: "No question in the request" });
   }
   const sanitisedQuestion = question.trim().replaceAll('\n', ' ');
+  const tickerSanitisedQuestion = sanitisedQuestion + ' related to ' + ticker;
 
   // Insert into the database
 
@@ -467,7 +473,7 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 
   try {
     const pinecone = await initPinecone();
-    const index = pinecone.Index(process.env.PINECONE_INDEX_NAME);
+    const index = pinecone.Index(process.env.PINECONE_INDEX_NAME); 
     const vectorStore = await PineconeStore.fromExistingIndex(
       new OpenAIEmbeddings({}),
       {
@@ -476,16 +482,36 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
       },
     );
 
-    // Create the chain - needs to be created...
-    const filter = {
+    // Create filter 
 
-    };
-
-    const chain = await makeChain(vectorStore, filter);
-    const response = await chain.call({
-      question: sanitisedQuestion,
-      chat_history: [],
-    });
+    let filter;
+    let response;
+    if (docType == "All" && docYear == "All") {
+      const chain = await makeChainAll(vectorStore, 4);
+      response = await chain.call({
+        question: tickerSanitisedQuestion,
+        chat_history: [],
+      });
+    } else if (docType == "All") {
+      filter = {
+        ticker: ticker,
+        year: docYear
+      };
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 4, filter);
+    } else if (docYear == "All") {
+      filter = {
+        ticker: ticker,
+        type: docType,
+      };
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 4, filter);
+    } else {
+      filter = {
+        ticker: ticker,
+        type: docType,
+        year: docYear,
+      }
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 4, filter);
+    }
 
     // Retrieve the stock data using the ticker from the request
     const query = `SELECT * FROM companies WHERE ticker=$1`;
@@ -493,6 +519,7 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 
     let company;
     let docData;
+
     try {
       const result = await pool.query(query, values);
       if (result.rows.length == 0) {
