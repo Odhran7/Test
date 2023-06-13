@@ -2,49 +2,8 @@
 <html lang="en"> 
 	<head>
 		<title>Valumetrics App</title>
-
-				<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-		<script>
-		const clientStockData = {{{stockData}}}; 
-		clientStockData.reverse();
-		window.onload = function() {
-			const ctx = document.getElementById('stockChart').getContext('2d');
-			new Chart(ctx, {
-				type: 'line',
-				data: {
-					labels: clientStockData.map(data => data.date),
-					datasets: [{
-						label: ' Stock Price',
-						data: clientStockData.map(data => data.price),
-						borderColor: '#000',
-						fill: false
-					}]
-				},
-				options: {
-					legend: {
-						display: false,
-					},
-					scales: {
-						x: {
-							type: 'time',
-							time: {
-								parser: 'YYYY-MM-DD', // Specify the parser because the date format sent from the server is 'yyyy-mm-dd'
-								tooltipFormat: 'll'
-							},
-							display: true,
-							scaleLabel: {
-								display: true,
-								labelString: 'Date'
-							}
-						},
-						y: {
-							beginAtZero: true
-						}
-					}
-				}
-			});
-		};
-		</script>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	
 		
 		<!-- Meta -->
 		<meta charset="utf-8">
@@ -478,6 +437,49 @@
 	   })();
    </script>
    <script>
+		const clientStockData = {{{stockData}}}; 
+		console.log(clientStockData);
+		clientStockData.reverse();
+		window.addEventListener('load', function() {
+			console.log(document.getElementById('stockChart'))
+			const ctx = document.getElementById('stockChart').getContext('2d');
+			new Chart(ctx, {
+				type: 'line',
+				data: {
+					labels: clientStockData.map(data => data.date),
+					datasets: [{
+						label: ' Stock Price',
+						data: clientStockData.map(data => data.price),
+						borderColor: '#000',
+						fill: false
+					}]
+				},
+				options: {
+					legend: {
+						display: false,
+					},
+					scales: {
+						x: {
+							type: 'time',
+							time: {
+								parser: 'YYYY-MM-DD',
+								tooltipFormat: 'll'
+							},
+							display: true,
+							scaleLabel: {
+								display: true,
+								labelString: 'Date'
+							}
+						},
+						y: {
+							beginAtZero: true
+						}
+					}
+				}
+			});
+	});
+	</script>
+   <script>
 var filterLabel = document.querySelector('.filter-label');
 var dropdownContent = document.querySelector('.dropdown-content');
 
@@ -511,7 +513,7 @@ hideDropdownOnMobile();
 window.addEventListener('resize', hideDropdownOnMobile);
 
 
-window.onload = function () {
+window.addEventListener('load', function() {
   document.querySelector('.app-search-form').addEventListener('submit', function(e) {
       var documentType = document.getElementById('document-type').value;
       var year = document.getElementById('year').value;
@@ -528,7 +530,7 @@ window.onload = function () {
       input2.setAttribute('value', year);
       this.appendChild(input2);
   });
-}
+});
    </script>
 
 </body>

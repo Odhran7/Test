@@ -236,22 +236,6 @@ const sessionStore = new pgSession({
 
 // This is for production (cookie settings)
 
-app.use(session({ 
-  secret: process.env.SECRET_KEY,
-  resave: false,
-  saveUninitialized: false,
-  store: sessionStore,
-  proxy: true,
-  cookie: {
-    secure: "auto",
-    maxAge: 100000000,
-    sameSite: "none",
-  }
-  }));
-
-// This is for development ssl not required as served over http
-
-
 // app.use(session({ 
 //   secret: process.env.SECRET_KEY,
 //   resave: false,
@@ -259,10 +243,26 @@ app.use(session({
 //   store: sessionStore,
 //   proxy: true,
 //   cookie: {
-//     secure: false,
+//     secure: "auto",
 //     maxAge: 100000000,
+//     sameSite: "none",
 //   }
-// }));
+//   }));
+
+// This is for development ssl not required as served over http
+
+
+app.use(session({ 
+  secret: process.env.SECRET_KEY,
+  resave: false,
+  saveUninitialized: false,
+  store: sessionStore,
+  proxy: true,
+  cookie: {
+    secure: false,
+    maxAge: 100000000,
+  }
+}));
 
 
 // Set up Passport
@@ -431,6 +431,8 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
         date: new Date(quote.date).toISOString().split('T')[0],
         price: quote.close
     }));
+
+    console.log(JSON.stringify(stockData));
 
     // Passing in key ratios 
     let ratioData;
