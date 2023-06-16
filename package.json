@@ -9,6 +9,7 @@
     "@pinecone-database/pinecone": "^0.1.6",
     "bcrypt": "^5.1.0",
     "chart.js": "^4.3.0",
+    "child_process": "^1.0.2",
     "colors": "^1.4.0",
     "connect-flash": "^0.1.1",
     "connect-pg-simple": "^8.0.0",
@@ -40,6 +41,7 @@
     "pg": "^8.11.0",
     "pg-connection-string": "^2.6.0",
     "promises": "^0.2.5",
+    "sec-api": "^3.1.5",
     "url": "^0.11.0",
     "yahoo-finance": "^0.3.8",
     "yahoo-finance2": "^2.4.1"
