@@ -12,19 +12,15 @@ const { error } = require("console");
 const { Document } = require('langchain/document');
 const { queryApi, extractorApi } = require('sec-api');
 const { TokenTextSplitter } = require("langchain/text_splitter");
+const { ingestNews } = require('./ingestNews');
+const natural = require('natural');
 
 // Set the initialisation vars 
 
-dotenv.config({ path: '../.env' });
+// dotenv.config({ path: '../.env' });
+dotenv.config();
 
-queryApi.setApiKey(process.env.SEC_API_KEY); // DO NOT COMMIT THIS
-console.log(process.env.SEC_API_KEY);
-
-
-
-// When running in prod 
-
-//dotenv.config();
+queryApi.setApiKey(process.env.SEC_API_KEY);
 
 // Instantiate the database connection
 const config = pgParse.parse(process.env.DATABASE_URL);
@@ -63,21 +59,15 @@ const groupByYear = (filings) => {
 
 const getFilingsTicker = async (ticker) => {
     const query = {
-        query: { query_string: { query: `ticker:"${ticker}" && (formType:"10-Q" || formType:"10-K")` } },
+        query: { query_string: { query: `ticker:"${ticker}" && (formType:"10-Q" || formType:"10-K") && filedAt:[2021-01-01 TO 2023-12-31]` } }, //  && filedAt:[2015-01-01 TO 2023-12-31]
         from: '0',
         size: '1000',
         sort: [{ filedAt: { order: 'desc' } }],
     };
     
-    console.log("Ticker and query!")
-    console.log(ticker);
-    console.log(query);
     const filings = await queryApi.getFilings(query);
-    console.log("These are the filings!");
     console.log(filings);
-    console.log("These are the filings by year!");
     const filingsByYear = groupByYear(filings.filings);
-    console.log(filingsByYear)
 
     const filingLinksByYearAndFormType = {};
     for (let year in filingsByYear) {
@@ -85,17 +75,21 @@ const getFilingsTicker = async (ticker) => {
             if (!links[filing.formType]) {
                 links[filing.formType] = [];
             }
-            links[filing.formType].push(filing.linkToHtml);
+            // create an object for each filing with the desired links
+            const filingLinks = {
+                link: filing.linkToHtml,
+                html: filing.linkToFilingDetails, 
+                txt: filing.linkToTxt,
+            };
+            links[filing.formType].push(filingLinks);
             return links;
         }, {});
     }
     console.log("This is the filingLinksByYearAndFormType");
-    console.log(filingLinksByYearAndFormType);
     return filingLinksByYearAndFormType;
 }
 
 const getItemAndIngest = async (index, filings, ticker, company_id) => {
-    console.log(`Here are the parameters being passed to getItemAndIngest ${index} ${filings} ${ticker}!`);
     const itemDict10K = {
         '1': 'Business',
         '1A': 'Risk Factors',
@@ -132,102 +126,119 @@ const getItemAndIngest = async (index, filings, ticker, company_id) => {
         'part2item6': 'Financial Statements and Supplementary Data',
     };
 
-// In your getTXTAndIngest function
-console.log("Entering loop!");
-for (let year in filings) {
-    console.log(`For year: ${year}!`);
-    let type = filings[year]['10-K'] ? "10-K" : "10-Q";
-    console.log(`Type: ${type}`);
-    const query =
-    "INSERT INTO test_documents (company_id, document_type, year, upload_timestamp) VALUES ($1, $2, $3, $4) RETURNING id;";
-    const values = [
-        company_id,
-        type,
-        year,
-        new Date(),
-    ];
-    const result = await pool.query(query, values);
-    let document_id = result.rows[0].id;
-    console.log(`Document_id: %{document_id}`);
-    if (filings[year]['10-Q']) {
-        for (let link of filings[year]['10-Q']) {
-            for (let item in itemDict10Q) {
+    const query = "INSERT INTO test_documents (company_id, document_type, year, upload_timestamp, link) VALUES ($1, $2, $3, $4, $5) RETURNING id;";
+
+    // Define an array to hold all documents
+
+    let documentsWithMetadata = [];
+
+    for (let year in filings) {
+        let type;
+
+        if (Array.isArray(filings[year]['10-Q'])) {
+            const promises = filings[year]['10-Q'].map(async (link) => {    
+                type = "10Q";
+                let document_id;
+                const values = [
+                    company_id,
+                    type,
+                    year,
+                    new Date(),
+                    link.html,
+                ];
                 try {
-                    const documentsWithMetadata = await getItemTxtAndIngest(index, link, item, document_id, ticker, type, year);
-                    console.log("Item " + item + " : url: " + link + '\n');
+                    const result = await pool.query(query, values);
+                    document_id = result.rows[0].id;
                 } catch (error) {
-                    if (error.response && error.response.status === 404) {
-                        console.log(`Item ${item} not found at url: ${link}`);
-                    } else {
-                        console.error(error);
-                    }
+                    console.error("Error inserting into db 10Q: " + error.message);
+                    return;
+                }   
+                const docsPromises = Object.keys(itemDict10Q).map(item => 
+                    getItemTxtAndIngest(link.link, link.txt, item, document_id, ticker, type, year)
+                );
+                return Promise.all(docsPromises);
+            });
+            const nestedDocs = await Promise.all(promises);
+            documentsWithMetadata = documentsWithMetadata.concat(...nestedDocs.flat());
+        }
+
+        if (Array.isArray(filings[year]['10-K'])) {
+            const promises = filings[year]['10-K'].map(async (link) => {
+                type = "10K";
+                let document_id;
+                const values = [
+                    company_id,
+                    type,
+                    year,
+                    new Date(),
+                    link.html,
+                ];
+                try {
+                    const result = await pool.query(query, values);
+                    document_id = result.rows[0].id;
+                } catch (error) {
+                    console.error("Error inserting into db 10K: " + error.message);
+                    return;
                 }
-            }
+                const docsPromises = Object.keys(itemDict10K).map(item => 
+                    getItemTxtAndIngest(link.link, link.txt, item, document_id, ticker, type, year)
+                );
+                return Promise.all(docsPromises);
+            });
+            const nestedDocs = await Promise.all(promises);
+            documentsWithMetadata = documentsWithMetadata.concat(...nestedDocs.flat());
         }
     }
-    
-    if (filings[year]['10-K']) {
-        for (let link of filings[year]['10-K']) {
-            for (let item in itemDict10K) {
-                try {
-                    const documentsWithMetadata = await getItemTxtAndIngest(index, link, item, document_id, ticker, type, year);
-                    console.log("Item " + item + " : url: " + link + '\n');
-                } catch (error) {
-                    if (error.response && error.response.status === 404) {
-                        console.log(`Item ${item} not found at url: ${link}`);
-                    } else {
-                        console.error(error);
-                    }
-                }
-            }
-        }
+
+    console.log(documentsWithMetadata);
+
+    /*create and store the embeddings in the vectorStore*/
+    const embeddings = new OpenAIEmbeddings();
+
+    //embed the txt docs
+    if (documentsWithMetadata.length > 0) {
+        documentsWithMetadata = documentsWithMetadata.filter(doc => doc != null);
+        await PineconeStore.fromDocuments(documentsWithMetadata, embeddings, {
+            pineconeIndex: index,
+            textKey: 'text',
+        });
     }
+
+    console.log("Documents were ingested into the Pinecone store successfully!");
 }
 
-}
 
-const getItemTxtAndIngest = async (index, link, item, document_id, ticker, type, year) => {
-    // Initialising the recursive character text splitter
-
-    const textSplitter = new TokenTextSplitter();
-
-        let docs;
+const getItemTxtAndIngest = async (link, txt, item, document_id, ticker, type, year) => {
+    const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200,
+      });
+    let documentsWithMetadata;
 
     try {
         const sectionText = await extractorApi.getSection(link, item, 'text');
-        console.log(sectionText);
-        console.log("Item " + item + " : url: " + link + '\n');
-        console.log("Splitting text for {item}", item)
-        const sectionTextDoc = new Document(sectionText);
-        docs = await textSplitter.splitDocuments([sectionTextDoc]);
+        const docs = await textSplitter.splitDocuments([
+            new Document({ pageContent: sectionText })
+        ]);
+        // const tokenizer = new natural.WordTokenizer();
+        // const tokens = tokenizer.tokenize(sectionText);
         const metadata = {
             id: document_id,
             ticker: ticker,
             type: type,
             item: item,
             year: year,
-          };
+            link: link,
+            txt: txt,
+        };
 
         // Add the metadata to the docs
-
         documentsWithMetadata = docs.map((doc) => new Document({
             metadata,
             pageContent: doc.pageContent,
-          }));
+        }));
 
-        /*create and store the embeddings in the vectorStore*/
-        const embeddings = new OpenAIEmbeddings();
-
-        //embed the PDF documents
-        await PineconeStore.fromDocuments(documentsWithMetadata, embeddings, {
-        pineconeIndex: index,
-        namespace: process.env.PINECONE_NAME_SPACE,
-        textKey: 'text',
-        });
-
-
-        console.log("Document was ingested into the Pinecone store successfully!");
-          
+        console.log("Document prepared successfully!");
     } catch (error) {
         if (error.response && error.response.status === 404) {
             console.log(`Item ${item} not found at url: ${link}`);
@@ -236,51 +247,47 @@ const getItemTxtAndIngest = async (index, link, item, document_id, ticker, type,
         }
     }
 
+    // Return the prepared documents
+    return documentsWithMetadata;
 }
 
-const ingestCompany = async (ticker) => {
-  try {
-
-    console.log(`In ingestCompany ${ticker}.`);
-
-    // Initialize the Pinecone client
-    const client = await initPinecone();
-    const index = client.Index(process.env.PINECONE_INDEX_NAME);
-
-    console.log("Pinecone client initialised successfully!");
-
-    // Getting the fillings obj [year: {10k, 10q[]}]...
-
-    console.log("Getting fillings!");
-    
-    const filings = await getFilingsTicker(ticker);
-
-    // Get the .txt content and ingest into Pinecone db
-
-    console.log("Gettting individual items and ingesting!");
-
-    // Need to get the company_id
-    let company_id;
+const ingestCompany = async (ticker, domain) => {
     try {
-        const query = `SELECT * FROM companies WHERE ticker=$1;`;
-        const values = [ticker];
-        const result = await pool.query(query, values);
-        company_id = result.rows[0].id;
+      // Initialize the Pinecone client
+      const client = await initPinecone();
+      const index = client.Index(process.env.PINECONE_INDEX_NAME);
+
+      const filings = await getFilingsTicker(ticker);
+
+      const query = `SELECT * FROM companies WHERE ticker=$1;`;
+      const values = [ticker];
+      const result = await pool.query(query, values);
+      let company_id = result.rows.length > 0 ? result.rows[0].id : null;
+
+      if (!company_id) {
+        const insertCompanyQuery = `INSERT INTO companies (ticker, url) VALUES ($1, $2) RETURNING id;`;
+        const insertCompanyValues = [ticker, domain];
+        const insertResult = await pool.query(insertCompanyQuery, insertCompanyValues);
+        company_id = insertResult.rows[0].id;
+      }
+
+      await getItemAndIngest(index, filings, ticker, company_id);
+
+      await ingestNews(ticker, company_id);
+      console.log("Company has been ingested");
+
     } catch (error) {
-        console.log(`Error: ${error}`);
-        throw new Error("Erorr getting ticker from the database");
-    }
-
-    await getItemAndIngest(index, filings, ticker, company_id);
-
-  } catch (error) {
-    console.error("Error ingesting document: ", error);
-  }
+      console.error("Error ingesting document: ", error);
+    }  
 }
+  
 
-const run = async () => {
-    await ingestCompany("AAPL");
+// const run = async () => {
+//     await ingestCompany("A"); // Need to insert new company into the db as well
+//   }
+  
+//   run();
+
+  module.exports = {
+    ingestCompany,
   }
-  
-  run();
-  

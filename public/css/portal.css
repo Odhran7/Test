@@ -1713,6 +1713,9 @@ progress {
         font-size: 0.875rem;
         line-height: 1.25rem;
       }
+      .summary-hidden {
+        display: none;
+      }
       
       .action {
         display: inline-flex;
@@ -1726,6 +1729,7 @@ progress {
         background-color: gray;
         padding: 4px 8px;
         border-radius: 4px;
+        margin-bottom: 20px;
       }
       
       .action span {

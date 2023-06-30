@@ -20,14 +20,15 @@ const yahooFinance = require('yahoo-finance');
 const yahooFinance2 = require('yahoo-finance2').default;
 const multer = require('multer');
 const flash = require('connect-flash');
-const { ingestDoc, makeChainAll, initPinecone, makeChainSearch } = require('./scripts/ingest');
 const { PineconeStore } = require('langchain/vectorstores/pinecone');
 const { OpenAIEmbeddings } = require('langchain/embeddings/openai');
 const { VectorOperationsApi } = require('@pinecone-database/pinecone/dist/pinecone-generated-ts-fetch');
-
-
-
+const { ingestCompany } = require('./scripts/ingestCompany');
+const { initPinecone, makeChainAll, makeChainSearch, ingestDoc } = require('./scripts/ingest');
 dotenv.config();
+const clearbit = require('clearbit')(process.env.CLEARBIT_API_KEY);
+
+
 
 // Instantiate the db connection
 const config = pgParse.parse(process.env.DATABASE_URL);
@@ -312,7 +313,7 @@ app.get('/app', ensureAuthenticatedAdmin, async (req, res) => {
 
   // Obtaining the number of documents
 
-  const documentsQuery = `SELECT COUNT(*) FROM documents;`;
+  const documentsQuery = `SELECT COUNT(*) FROM test_documents;`;
   const documentsResult = await pool.query(documentsQuery);
   const documents = documentsResult.rows[0].count;
 
@@ -330,7 +331,7 @@ app.get('/app', ensureAuthenticatedAdmin, async (req, res) => {
   });
 
   for (id in ids) {
-    const documentsPerIdQuery = `SELECT COUNT(*) FROM documents WHERE company_id=$1;`;
+    const documentsPerIdQuery = `SELECT COUNT(*) FROM test_documents WHERE company_id=$1;`;
     const documentsPerIdResult = await pool.query(documentsPerIdQuery, [id]);
     const documentsPerCompany = documentsPerIdResult.rows[0].count;
     ids[id] = parseInt(documentsPerCompany);
@@ -348,75 +349,158 @@ app.get('/app', ensureAuthenticatedAdmin, async (req, res) => {
 
 
 app.get('/app/companies', ensureAuthenticatedAdmin, async (req, res) => {
-  const queryCompany = `SELECT * FROM companies;`;
-  const results = await pool.query(queryCompany);
-  const rows = results.rows;
-  const apiKey = process.env.ALPHAVANTAGE_API_KEY;
+  try {
+    const queryCompany = `SELECT * FROM companies;`;
+    const results = await pool.query(queryCompany);
+    const rows = results.rows;
 
-  const tickers = [];
+    const tickers = [];
 
-  for (const row of rows) {
-    const queryDocs = `SELECT COUNT(*) FROM documents WHERE company_id=$1;`;
-    const value = [row.id];
-    const resultDocs = await pool.query(queryDocs, value);
+    for (const row of rows) {
+      try {
+        const queryDocs = `SELECT COUNT(*) FROM test_documents WHERE company_id=$1;`;
+        const value = [row.id];
+        const resultDocs = await pool.query(queryDocs, value);
 
-    const ticker = row.ticker;
-    const name = row.name;
-    const marketCap = row.market_cap;
-    const logoUrl = row.logo_url;
-    const docs = parseInt(resultDocs.rows[0].count);
-    // Not actually needed but might be needed later
-    const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`;
-    try {
-      const data = await fetch(url);
-      const json = await data.json();
-      if (json && json.Symbol && json.MarketCapitalization) {
-        tickers.push({
-          name,
-          ticker: json.Symbol,
-          marketCap: json.MarketCapitalization,
-          logoUrl,
-          docs,
-        });
-      } else {
-        tickers.push({ name, ticker, marketCap, logoUrl, docs });
+        const ticker = row.ticker;
+        const domain = row.url;
+        const polygonApiKey = process.env.POLYGON_API_KEY;
+        const resPolygon = await fetch(`https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${polygonApiKey}`);
+        const data = await resPolygon.json();
+
+        // make sure to check that these fields actually exist in the response
+        const name = data.results.name;
+        const marketCap = data.results.market_cap;
+        const description = data.results.description;
+
+        // Use the local endpoint as the logo URL, to fetch the image with the API key on the server side
+        const logoUrl = `https://logo.clearbit.com/${domain}`;
+
+        const docs = parseInt(resultDocs.rows[0].count);
+        tickers.push({ name, description, ticker, marketCap, logoUrl, docs });
+      } catch (err) {
+        console.error(`Error processing company with ID ${row.id}:`, err);
+        // Continue to next iteration of loop, even if there was an error with this company
+        continue;
       }
-    } catch (error) {
-      console.log(`Error fetching ticker for ${ticker}: ${error}`);
-      tickers.push({ name, ticker, marketCap, logoUrl, docs });
     }
+
+    res.render('companies', { tickers: tickers });
+  } catch (err) {
+    console.error('Error fetching companies:', err);
+    res.status(500).send('Server error');
   }
-  res.render('companies', { tickers: tickers, JSONTickers: JSON.stringify(tickers) });
 });
+
+// This is the route for handling logo images
+
+// app.get('/app/company/logo/:ticker', async (req, res) => {
+//   const ticker = req.params.ticker;
+
+//   try {
+//     const queryCompany = `SELECT * FROM companies WHERE ticker = $1;`;
+//     const results = await pool.query(queryCompany, [ticker]);
+//     const rows = results.rows;
+
+//     if (rows.length === 0) {
+//       console.log(`No results found for ticker: ${ticker}`);
+//       return res.status(404).send('Logo not found');
+//     }
+
+//     const domain = rows[0].url;
+   
+//     const resLogo = await fetch(`https://logo.clearbit.com/${domain}`);
+//     if (!resLogo.ok) {
+//       console.log(`No results found for ticker: ${ticker}`);
+//       return res.status(404).send('Logo not found');
+//     }
+
+//     const logoBuffer = await resLogo.buffer();
+
+//     res.setHeader('Content-Type', 'image/svg+xml');
+//     res.send(logoBuffer);
+//   } catch (err) {
+//     console.error(`Error processing logo for ticker ${ticker}:`, err);
+//     res.status(500).send('Server error');
+//   }
+// });
+
+
 
 app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
 
   const ticker = req.params.ticker;
+  const polygonApiKey = process.env.POLYGON_API_KEY;
 
-  
-  // All data related to the chart
-  
   const query = `SELECT * FROM companies WHERE ticker=$1`;
   const values = [ticker];
 
-  // All data related to the docs 
+  const docQuery = `(
+    SELECT *
+    FROM test_documents
+    WHERE company_id = $1 AND document_type = '10K'
+    ORDER BY upload_timestamp ASC
+    LIMIT 5
+  )
+  UNION ALL
+  (
+    SELECT *
+    FROM test_documents
+    WHERE company_id = $1 AND document_type = '10Q'
+    ORDER BY upload_timestamp ASC
+    LIMIT 5
+  )
+  UNION ALL
+  (
+    SELECT *
+    FROM test_documents
+    WHERE company_id = $1 AND document_type = 'News Article'
+    ORDER BY upload_timestamp ASC
+    LIMIT 5
+  )
+  UNION ALL
+  (
+    SELECT *
+    FROM test_documents
+    WHERE company_id = $1 AND document_type = 'Equity Research'
+    ORDER BY upload_timestamp ASC
+    LIMIT 5
+  );`;
 
-  const docQuery = `SELECT * FROM documents WHERE company_id=$1;`;
-  
   let company;
   let docData;
+  let domain;
   try {
     const result = await pool.query(query, values);
+    domain = result.rows[0].url;
     const docValues = [result.rows[0].id];
     const docResults = await pool.query(docQuery, docValues);
     docData = docResults.rows;
     if (result.rows.length == 0) { 
       return res.status(404).send('Stock not found in the database');
     }
-    company = result.rows[0]; 
+
+    const resPolygon = await fetch(`https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${polygonApiKey}`);
+    const data = await resPolygon.json();
+
+    // Ensure that these fields exist in the data
+    const name = data.results.name;
+    const marketCap = data.results.market_cap;
+    const description = data.results.description;
+    const logoUrl = `https://logo.clearbit.com/${domain}`;;
+
+    company = {
+      name: name,
+      marketCap: marketCap,
+      description: description,
+      logo_url: logoUrl,
+      ticker: ticker,
+      domain: domain,
+    }
+
   } catch (err) {
     console.error('Failed to retrieve stock from the database:', err);
-    return res.status(500).send(err.message);
+    return res.status(500).send('An error occurred, please try again later');
   }
   
   try {
@@ -432,25 +516,21 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
         price: quote.close
     }));
 
-    console.log(JSON.stringify(stockData));
-
-    // Passing in key ratios 
     let ratioData;
     try {
       ratioData = (await yahooFinance2.quoteSummary(ticker)).summaryDetail;
     } catch (err) {
       console.error('Error getting stock data');
-      return res.status(500).send(err.message);
+      return res.status(500).send('An error occurred, please try again later');
     }
-    res.render('company', { stockData: JSON.stringify(stockData), company, data: ratioData, docData: docData }); // Pass company data to the template
+    res.render('company', { stockData: JSON.stringify(stockData), company, data: ratioData, docData: docData });
   } catch (err) {
     console.error('Failed to retrieve stock price data:', err);
-    res.status(500).send(err.message);
+    res.status(500).send('An error occurred, please try again later');
   }
 });
 
 app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
-
   const ticker = req.params.ticker;
   const question = req.body.question;
   const docType = req.body.documentType;
@@ -462,15 +542,13 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
   const sanitisedQuestion = question.trim().replaceAll('\n', ' ');
   const tickerSanitisedQuestion = sanitisedQuestion + ' related to ' + ticker;
 
-  // Insert into the database
-
   try {
     const insertQuery = `INSERT INTO search_history (user_id, prompt) VALUES ($1, $2)`;
     const values = [req.user.id, sanitisedQuestion];
     const result = await pool.query(insertQuery, values);
   } catch (err) {
-      console.error('Failed to insert query into the database', err);
-      return res.status(500).send(err.message);
+    console.error('Failed to insert query into the database', err);
+    return res.status(500).send(err.message);
   }
 
   try {
@@ -484,56 +562,101 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
       },
     );
 
-    // Create filter 
-
     let filter;
     let response;
     if (docType == "All" && docYear == "All") {
-      const chain = await makeChainAll(vectorStore, 4);
-      response = await chain.call({
-        question: tickerSanitisedQuestion,
-        chat_history: [],
-      });
+      filter = {
+        ticker: ticker,
+        year: { "$gte": 2022 },
+      };
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 12, filter, true);
     } else if (docType == "All") {
       filter = {
         ticker: ticker,
         year: docYear
       };
-      response = await makeChainSearch(sanitisedQuestion, vectorStore, 4, filter);
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 12, filter, false);
     } else if (docYear == "All") {
       filter = {
         ticker: ticker,
         type: docType,
       };
-      response = await makeChainSearch(sanitisedQuestion, vectorStore, 4, filter);
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 12, filter, false);
     } else {
       filter = {
         ticker: ticker,
         type: docType,
         year: docYear,
       }
-      response = await makeChainSearch(sanitisedQuestion, vectorStore, 4, filter);
+      response = await makeChainSearch(sanitisedQuestion, vectorStore, 12, filter, false);
     }
 
-    // Retrieve the stock data using the ticker from the request
     const query = `SELECT * FROM companies WHERE ticker=$1`;
-    const values = [ticker];
-
+    const companyValues = [ticker];
     let company;
     let docData;
+    let domain;
+    console.log(response);
 
     try {
-      const result = await pool.query(query, values);
-      if (result.rows.length == 0) {
-        return res.status(404).send('Stock not found in the database');
-      }
-      company = result.rows[0];
-
-      // Fetch the document data for the company
-      const docQuery = `SELECT * FROM documents WHERE company_id=$1;`;
-      const docValues = [company.id];
+      const companyResult = await pool.query(query, companyValues);
+      domain = companyResult.rows[0].url;
+      const docQuery = `(
+        SELECT *
+        FROM test_documents
+        WHERE company_id = $1 AND document_type = '10K'
+        ORDER BY upload_timestamp ASC
+        LIMIT 5
+      )
+      UNION ALL
+      (
+        SELECT *
+        FROM test_documents
+        WHERE company_id = $1 AND document_type = '10Q'
+        ORDER BY upload_timestamp ASC
+        LIMIT 5
+      )
+      UNION ALL
+      (
+        SELECT *
+        FROM test_documents
+        WHERE company_id = $1 AND document_type = 'News Article'
+        ORDER BY upload_timestamp ASC
+        LIMIT 5
+      )
+      UNION ALL
+      (
+        SELECT *
+        FROM test_documents
+        WHERE company_id = $1 AND document_type = 'Equity Research'
+        ORDER BY upload_timestamp ASC
+        LIMIT 5
+      );`;
+      const docValues = [companyResult.rows[0].id];
       const docResults = await pool.query(docQuery, docValues);
       docData = docResults.rows;
+      if (companyResult.rows.length == 0) { 
+        return res.status(404).send('Stock not found in the database');
+      }
+      
+      // Fetch company data from Polygon API
+      const polygonApiKey = process.env.POLYGON_API_KEY;
+      const resPolygon = await fetch(`https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${polygonApiKey}`);
+      const data = await resPolygon.json();
+
+      const name = data.results.name;
+      const marketCap = data.results.market_cap;
+      const description = data.results.description;
+      const logoUrl =  `https://logo.clearbit.com/${domain}`;;
+
+      company = {
+        name: name,
+        marketCap: marketCap,
+        description: description,
+        logo_url: logoUrl,
+        ticker: ticker,
+        domain: domain,
+      }
     } catch (err) {
       console.error('Failed to retrieve stock from the database:', err);
       return res.status(500).send(err.message);
@@ -552,7 +675,6 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
         price: quote.close
       }));
 
-      // Passing in key ratios
       let ratioData;
       try {
         ratioData = (await yahooFinance2.quoteSummary(ticker)).summaryDetail;
@@ -560,21 +682,19 @@ app.post('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
         console.error('Error getting stock data');
         return res.status(500).send(err.message);
       }
-
+      console.log(response);
       res.render('company', {
         stockData: JSON.stringify(stockData),
         company,
         data: ratioData,
-        response: {
-          text: response.text,
-          sourceDocuments: response.sourceDocuments,
-        },
-        docData: docData // Pass the document data to the template
+        response,
+        docData: docData
       });
     } catch (err) {
       console.error('Failed to retrieve stock price data:', err);
       res.status(500).send(err.message);
     }
+
   } catch (error) {
     console.log(error, "Something went wrong in the route");
     console.log(error.message);
@@ -617,10 +737,8 @@ app.post('/admin', ensureAuthenticatedAdmin ,upload.single('file'), [
   const formType = req.body.formType;
   if (formType === 'add-company') {
     try {
-      const { name, ticker, market_cap, logo_url } = req.body;
-      const query = `INSERT INTO companies (name, ticker, market_cap, logo_url) VALUES ($1, $2, $3, $4);`;
-      const values = [name, ticker, market_cap, logo_url];
-      const result = await pool.query(query, values);
+      const { ticker, domain } = req.body;
+      await ingestCompany(ticker, domain);
       req.flash('success', 'Company added successfully');
       res.redirect(req.header('Referer') || '/');
     } catch (err) {
