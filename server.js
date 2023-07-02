@@ -14,6 +14,8 @@ const { rateLimit } = require('express-rate-limit');
 const pgParse = require('pg-connection-string');
 const hbs = require('hbs');
 const fetch = require('node-fetch');
+const fs = require('fs');
+const util = require('util');
 const GoogleStrategy = require('passport-google-oauth2').Strategy;
 const LinkedInStrategy = require("passport-linkedin-oauth2").Strategy;
 const yahooFinance = require('yahoo-finance');
@@ -25,6 +27,7 @@ const { OpenAIEmbeddings } = require('langchain/embeddings/openai');
 const { VectorOperationsApi } = require('@pinecone-database/pinecone/dist/pinecone-generated-ts-fetch');
 const { ingestCompany } = require('./scripts/ingestCompany');
 const { initPinecone, makeChainAll, makeChainSearch, ingestDoc } = require('./scripts/ingest');
+const pdfParse = require('pdf-parse');
 dotenv.config();
 const clearbit = require('clearbit')(process.env.CLEARBIT_API_KEY);
 
@@ -425,6 +428,33 @@ app.get('/app/companies', ensureAuthenticatedAdmin, async (req, res) => {
 //   }
 // });
 
+// This function returns the contents of the pdf file -> Placeholder function
+
+const readFile = util.promisify(fs.readFile);
+const access = util.promisify(fs.access);
+
+const getBusinessModel = async (ticker) => {
+  const linkToPdf = `./scripts/${ticker}_Business_Model.pdf`;
+
+  try {
+    // Check if the file exists
+    await access(linkToPdf, fs.constants.F_OK);
+    const dataBuffer = await readFile(linkToPdf);
+    const data = await pdfParse(dataBuffer);
+    
+    // Replace ## with <br><br>##
+    const formattedText = data.text.replace(/##/g, '<br><br>##');
+    const updatedFormattedText = formattedText.replace(/Source:/g, '<br><br>Source:');
+
+
+    return updatedFormattedText;
+  } catch (err) {
+    console.error(`Failed to read or parse the file: ${err.message}`);
+    return null;
+  }
+};
+
+
 
 
 app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
@@ -489,6 +519,9 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
     const description = data.results.description;
     const logoUrl = `https://logo.clearbit.com/${domain}`;;
 
+    // Need to pass in the auto-generated report content
+    const businessModel = await getBusinessModel(ticker);
+
     company = {
       name: name,
       marketCap: marketCap,
@@ -496,6 +529,7 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
       logo_url: logoUrl,
       ticker: ticker,
       domain: domain,
+      businessModel: businessModel,
     }
 
   } catch (err) {

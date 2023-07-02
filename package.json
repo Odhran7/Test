@@ -45,6 +45,7 @@
     "path": "^0.12.7",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^3.7.107",
+    "pdfkit": "^0.13.0",
     "pg": "^8.11.0",
     "pg-connection-string": "^2.6.0",
     "promises": "^0.2.5",
