@@ -31,8 +31,6 @@ const pdfParse = require('pdf-parse');
 dotenv.config();
 const clearbit = require('clearbit')(process.env.CLEARBIT_API_KEY);
 
-
-
 // Instantiate the db connection
 const config = pgParse.parse(process.env.DATABASE_URL);
 config.ssl = {
@@ -555,6 +553,7 @@ app.get('/app/company/:ticker', ensureAuthenticatedAdmin, async (req, res) => {
       ratioData = (await yahooFinance2.quoteSummary(ticker)).summaryDetail;
     } catch (err) {
       console.error('Error getting stock data');
+      console.error(err);
       return res.status(500).send('An error occurred, please try again later');
     }
     res.render('company', { stockData: JSON.stringify(stockData), company, data: ratioData, docData: docData });
