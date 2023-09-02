@@ -8,7 +8,9 @@
   "dependencies": {
     "@extractus/article-extractor": "^7.2.16",
     "@pinecone-database/pinecone": "^0.1.6",
+    "axios": "^1.4.0",
     "bcrypt": "^5.1.0",
+    "bottleneck": "^2.19.5",
     "chart.js": "^4.3.0",
     "cheerio": "^1.0.0-rc.12",
     "child_process": "^1.0.2",
@@ -26,6 +28,8 @@
     "express-rate-limit": "^6.7.0",
     "express-session": "^1.17.3",
     "express-validator": "^7.0.1",
+    "financialmodelingprep": "^1.1.0",
+    "finnhub": "^1.2.17",
     "fs": "^0.0.1-security",
     "hbs": "~4.0.4",
     "html-to-text": "^9.0.5",
@@ -45,14 +49,19 @@
     "passport-oauth2": "^1.7.0",
     "path": "^0.12.7",
     "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^3.7.107",
+    "pdfjs-dist": "^3.10.111",
     "pdfkit": "^0.13.0",
     "pg": "^8.11.0",
     "pg-connection-string": "^2.6.0",
     "promises": "^0.2.5",
+    "puppeteer": "^19.11.1",
     "sec-api": "^3.1.5",
+    "sgml": "^0.3.0-beta",
+    "stopword": "^2.0.8",
     "url": "^0.11.0",
+    "xml2js": "^0.6.2",
     "yahoo-finance": "^0.3.8",
-    "yahoo-finance2": "^2.4.2"
+    "yahoo-finance2": "^2.4.2",
+    "zlib": "^1.0.5"
   }
 }

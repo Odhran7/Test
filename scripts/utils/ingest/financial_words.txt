@@ -1,0 +1,106 @@
+asset
+liability
+equity
+revenue
+profit
+loss
+dividend
+interest
+capital
+stock
+bond
+debt
+share
+portfolio
+investment
+hedge
+derivative
+option
+futures
+commodity
+forex
+exchange
+rate
+yield
+return
+risk
+insurance
+credit
+bankruptcy
+inflation
+deflation
+economy
+market
+index
+bullish
+bearish
+volatility
+valuation
+amortization
+liquidity
+leverage
+arbitrage
+broker
+buyback
+capitalization
+dividend yield
+EBITDA
+EPS (Earnings Per Share)
+equities
+fixed income
+fundamental analysis
+technical analysis
+gross margin
+IPO (Initial Public Offering)
+market capitalization
+mutual fund
+net income
+operating margin
+PEG ratio
+P/E ratio
+price-to-book
+price-to-sales
+ROA (Return on Assets)
+ROE (Return on Equity)
+ROI (Return on Investment)
+S&P 500
+Dow Jones
+NASDAQ
+securities
+spread
+trading volume
+treasury
+ETF (Exchange Traded Fund)
+REIT (Real Estate Investment Trust)
+blue-chip
+day trading
+swing trading
+momentum trading
+consumer discretionary
+consumer staples
+energy
+financials
+healthcare
+industrials
+technology
+materials
+real estate
+telecommunication
+utilities
+cryptocurrency
+bitcoin
+ethereum
+blockchain
+unemployment rate
+GDP (Gross Domestic Product)
+CPI (Consumer Price Index)
+PPI (Producer Price Index)
+FOMC (Federal Open Market Committee)
+fiscal policy
+monetary policy
+quantitative easing
+interest rate hike
+interest rate cut
+trade deficit
+budget deficit
+audit fees
