@@ -10,7 +10,10 @@ const {
 } = require("../utils/ingest/keywordExtraction");
 const { insertIntoVectors } = require("../utils/ingest/vectorIdInsertion");
 const { getSectionWithRetry } = require("../utils/ingest/RateLimit");
-
+const { ingestToPinecone } = require("../utils/ingest/ingestPincone");
+const { PineconeStore } = require("langchain/vectorstores/pinecone");
+const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
+const { PineconeClient } = require("@pinecone-database/pinecone");
 /*
 Helpful info on the standards applied to an 8k
  const itemDict8K = {
@@ -58,13 +61,12 @@ Helpful info on the standards applied to an 8k
 
 */
 
-
 // dotenv.config();
 dotenv.config({ path: "../../.env" });
 
 queryApi.setApiKey(process.env.SEC_API_KEY);
 
-const get8KItemAndIngest = async (index, filings, ticker, company_id) => {
+const get8KItemAndIngest = async (filings, ticker, company_id) => {
   const itemDict8K = {
     1.01: "1-1",
     1.02: "1-2",
@@ -156,9 +158,26 @@ const get8KItemAndIngest = async (index, filings, ticker, company_id) => {
   }
 
   if (documentsWithMetadata.length > 0) {
-    documentsWithMetadata = documentsWithMetadata.filter((doc) => doc != null);
-    // Uncomment the next line if you need to ingest the documents to Pinecone
-    // await ingestToPinecone(document_id, documentsWithMetadata, index, type);
+    documentsWithMetadata = documentsWithMetadata.filter((doc) => {
+      if (!doc) return false;
+      if (Array.isArray(doc) && doc.length === 0) return false;
+      if (Object.keys(doc).length === 0 && doc.constructor === Object)
+        return false;
+      return true;
+    });
+    const client = new PineconeClient();
+    await client.init({
+      apiKey: process.env.PINECONE_API_KEY,
+      environment: process.env.PINECONE_ENVIRONMENT,
+    });
+    const pineconeIndex = client.Index(process.env.PINECONE_INDEX_NAME);
+    await PineconeStore.fromDocuments(
+      documentsWithMetadata,
+      new OpenAIEmbeddings(),
+      {
+        pineconeIndex,
+      }
+    );
   }
 };
 
@@ -196,7 +215,7 @@ const get8KItemTxtAndIngest = async (
       metadata.keywords = keywords;
 
       const docs = await textSplitter.splitDocuments([
-        new Document({ pageContent: sectionText, metadata: metadata }),
+        new Document({ id: vector_id, pageContent: sectionText, metadata: metadata }),
       ]);
 
       const documentsWithMetadata = docs.map(

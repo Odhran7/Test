@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const pgParse = require("pg-connection-string");
 const pg = require("pg");
 
-dotenv.config({ path: "../../.env" });
+dotenv.config({ path: "../.env" });
 
 const config = pgParse.parse(process.env.DATABASE_URL);
 config.ssl = { rejectUnauthorized: false };

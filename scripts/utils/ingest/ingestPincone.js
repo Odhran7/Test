@@ -1,26 +1,20 @@
-const { Document } = require('langchain/document');
+// This util ingests the docs into the Pinecone db
+
 const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
-const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
 const { PineconeStore } = require("langchain/vectorstores/pinecone");
-const { insertIntoVectors } = require('./vectorIdInsertion');
 
-const ingestToPinecone = async (document_id, docs, index, type) => {
+const ingestToPinecone = async (docs, index) => {
+  try {
     const embeddings = new OpenAIEmbeddings();
-
-    const promises = docs.map(async (doc) => {
-        let vector_id = await insertIntoVectors(document_id);
-        const documentWithMetadata = new Document({
-            metadata: {...doc.metadata, vector_id}, 
-            pageContent: doc.pageContent,
-        });
-        return PineconeStore.fromDocuments([documentWithMetadata], embeddings, {
-            pineconeIndex: index,
-            textKey: 'text',
-        });
+    return await PineconeStore.fromDocuments(docs, embeddings, {
+      pineconeIndex: index,
+      textKey: "pageContent",
     });
-    await Promise.all(promises);
+  } catch (error) {
+    console.log("There is an error - ingestToPinecone: " + error);
+  }
 };
 
 module.exports = {
-    ingestToPinecone,
-}
+  ingestToPinecone,
+};

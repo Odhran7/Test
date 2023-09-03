@@ -12,6 +12,9 @@ const {
   extractSignificantWords,
 } = require("../utils/ingest/keywordExtraction");
 const { insertIntoVectors } = require("../utils/ingest/vectorIdInsertion");
+const { PineconeStore } = require("langchain/vectorstores/pinecone");
+const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
+const { PineconeClient } = require("@pinecone-database/pinecone");
 
 dotenv.config({ path: "../../.env" });
 
@@ -77,9 +80,8 @@ const ingestPatents = async (company_id, ticker) => {
       continue;
     }
   }
-  console.log(processedData);
-  // Ingest the data here !
-  return processedData;
+  // console.log(processedData);
+  return;
 };
 
 const tagPatentAndIngest = async (
@@ -129,10 +131,29 @@ const tagPatentAndIngest = async (
     documentsWithMetadata = docs.map((doc) => {
       const keywords = extractSignificantWords(doc.pageContent, 25);
       return new Document({
-        metadata: { ...metadata, keywords: keywords },
         pageContent: doc.pageContent,
+        metadata: { ...metadata, keywords: keywords },
       });
     });
+
+    if (documentsWithMetadata.length > 0) {
+      const filteredData = documentsWithMetadata.filter((doc) => {
+        if (!doc) return false;
+        if (Array.isArray(doc) && doc.length === 0) return false;
+        if (Object.keys(doc).length === 0 && doc.constructor === Object)
+          return false;
+        return true;
+      });
+      const client = new PineconeClient();
+      await client.init({
+        apiKey: process.env.PINECONE_API_KEY,
+        environment: process.env.PINECONE_ENVIRONMENT,
+      });
+      const pineconeIndex = client.Index(process.env.PINECONE_INDEX_NAME);
+      await PineconeStore.fromDocuments(filteredData, new OpenAIEmbeddings(), {
+        pineconeIndex,
+      });
+    }
 
     // Log the success to the console
     console.log(
@@ -253,3 +274,7 @@ const getPatentFilingsForYear = async (ticker, start, end) => {
 
 // const dateStr = '2022-03-17 00:00:00';
 // console.log(extractDate(dateStr).year);
+
+module.exports = {
+  ingestPatents,
+};

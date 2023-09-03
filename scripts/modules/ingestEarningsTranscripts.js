@@ -10,11 +10,14 @@ const {
   extractSignificantWords,
 } = require("../utils/ingest/keywordExtraction");
 const { insertIntoVectors } = require("../utils/ingest/vectorIdInsertion");
+const { PineconeStore } = require("langchain/vectorstores/pinecone");
+const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
+const { PineconeClient } = require("@pinecone-database/pinecone");
 
 // dotenv.config();
 dotenv.config({ path: "../../.env" });
 
-const ingestEarningsTranscipts = async (index, ticker, company_id) => {
+const ingestEarningsTranscipts = async (ticker, company_id) => {
   const query =
     "INSERT INTO documents_tag (company_id, document_type, year, upload_timestamp, link, month) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;";
   const processedData = [];
@@ -63,13 +66,10 @@ const ingestEarningsTranscipts = async (index, ticker, company_id) => {
       );
 
       processedData.push(docs);
-
-      // Ingest the data here!
     }
   } catch (error) {
     console.error(error);
   }
-  return processedData;
 };
 
 // This module splits and tags the earning transcipt content with metadata
@@ -104,7 +104,7 @@ const splitAndTag = async (
 
     // Split the docs
     const docs = await textSplitter.splitDocuments([
-      new Document({ pageContent: content, metadata: metadata }),
+      new Document({ id: vector_id, pageContent: content, metadata: metadata }),
     ]);
 
     // Add the metadata and keywords to the docs
@@ -115,6 +115,29 @@ const splitAndTag = async (
         pageContent: doc.pageContent,
       });
     });
+
+    if (documentsWithMetadata.length > 0) {
+      const filteredData = documentsWithMetadata.filter((doc) => {
+        if (!doc) return false;
+        if (Array.isArray(doc) && doc.length === 0) return false;
+        if (Object.keys(doc).length === 0 && doc.constructor === Object)
+          return false;
+        return true;
+      });
+      const client = new PineconeClient();
+      await client.init({
+        apiKey: process.env.PINECONE_API_KEY,
+        environment: process.env.PINECONE_ENVIRONMENT,
+      });
+      const pineconeIndex = client.Index(process.env.PINECONE_INDEX_NAME);
+      await PineconeStore.fromDocuments(
+        filteredData,
+        new OpenAIEmbeddings(),
+        {
+          pineconeIndex,
+        }
+      );
+    }
 
     // Log the success to the console
     console.log(
@@ -196,9 +219,9 @@ const getEarningsTranscript = async (ticker, quarter, year) => {
   });
 };
 
-ingestEarningsTranscipts("AAPL", 100000)
-  .then((data) => console.log(data))
-  .catch((error) => console.error(error));
+// ingestEarningsTranscipts("AAPL", 100000)
+//   .then((data) => console.log(data))
+//   .catch((error) => console.error(error));
 
 module.exports = {
   ingestEarningsTranscipts,

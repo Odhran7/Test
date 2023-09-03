@@ -9,11 +9,14 @@ const {
   extractSignificantWords,
 } = require("../utils/ingest/keywordExtraction");
 const { insertIntoVectors } = require("../utils/ingest/vectorIdInsertion");
+const { ingestToPinecone } = require("../utils/ingest/ingestPincone");
 const https = require("https");
 const Bottleneck = require("bottleneck");
-const zlib = require('zlib');
-const xml2js = require('xml2js');
-
+const zlib = require("zlib");
+const xml2js = require("xml2js");
+const { PineconeStore } = require("langchain/vectorstores/pinecone");
+const { OpenAIEmbeddings } = require("langchain/embeddings/openai");
+const { PineconeClient } = require("@pinecone-database/pinecone");
 
 // dotenv.config();
 dotenv.config({ path: "../../.env" });
@@ -25,7 +28,7 @@ const limiter = new Bottleneck({
 
 queryApi.setApiKey(process.env.SEC_API_KEY);
 
-const getThirteenFAndIngest = async (index, filings, ticker, company_id) => {
+const getThirteenFAndIngest = async (filings, ticker, company_id) => {
   const query =
     "INSERT INTO documents_tag (company_id, document_type, year, upload_timestamp, link, month) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;";
 
@@ -63,7 +66,7 @@ const getThirteenFAndIngest = async (index, filings, ticker, company_id) => {
             ticker,
             type,
             year,
-            content,
+            content
           );
           return documentsWithMetadata;
         } catch (error) {
@@ -80,9 +83,26 @@ const getThirteenFAndIngest = async (index, filings, ticker, company_id) => {
   }
 
   if (documentsWithMetadata.length > 0) {
-    documentsWithMetadata = documentsWithMetadata.filter((doc) => doc != null);
-    // Uncomment the next line if you need to ingest the documents to Pinecone
-    // await ingestToPinecone(document_id, documentsWithMetadata, index, type);
+    const filteredData = documentsWithMetadata.filter((doc) => {
+      if (!doc) return false;
+      if (Array.isArray(doc) && doc.length === 0) return false;
+      if (Object.keys(doc).length === 0 && doc.constructor === Object)
+        return false;
+      return true;
+    });
+    const client = new PineconeClient();
+    await client.init({
+      apiKey: process.env.PINECONE_API_KEY,
+      environment: process.env.PINECONE_ENVIRONMENT,
+    });
+    const pineconeIndex = client.Index(process.env.PINECONE_INDEX_NAME);
+    await PineconeStore.fromDocuments(
+      filteredData,
+      new OpenAIEmbeddings(),
+      {
+        pineconeIndex,
+      }
+    );
   }
 };
 
@@ -98,9 +118,9 @@ const get13FContent = async (url) => {
   const xmlTextContent = data.slice(startIndex, endIndex);
   xml2js.parseString(xmlTextContent, (err, result) => {
     if (err) {
-        console.error(err);
-        return;
-    } 
+      console.error(err);
+      return;
+    }
     textContent = JSON.stringify(result);
   });
   return textContent;
@@ -174,7 +194,7 @@ const get13FTxtAndIngest = async (
     const vector_id = await insertIntoVectors(document_id);
     metadata.vector_id = vector_id;
     const docs = await textSplitter.splitDocuments([
-      new Document({ pageContent: content, metadata: metadata }),
+      new Document({ id: vector_id, pageContent: content, metadata: metadata }),
     ]);
 
     const documentsWithMetadata = docs.map((doc) => {
